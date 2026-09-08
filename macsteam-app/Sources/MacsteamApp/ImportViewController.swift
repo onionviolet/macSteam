@@ -531,6 +531,7 @@ final class ImportViewController: NSViewController {
         guard !selected.isEmpty else { return }
 
         setBusy(true, status: "Applying import…")
+        OperationalLog.shared.record(.info, operation: "import", message: "Applying \(selected.count) selected item(s)")
 
         let allManifests = selected.flatMap(\.manifestFiles)
         let plans = selected
@@ -547,6 +548,7 @@ final class ImportViewController: NSViewController {
 
             switch copyResult {
             case .failure(let error):
+                OperationalLog.shared.record(.error, operation: "import", message: error.localizedDescription)
                 self.refreshActionBar()
                 presentAlert("Import failed", error.localizedDescription, style: .warning)
             case .success:
@@ -568,7 +570,9 @@ final class ImportViewController: NSViewController {
                     self.reviewTable.reloadData()
                     self.refreshActionBar()
                     self.showSuccess(games: g, dlc: dlcTotal)
+                    OperationalLog.shared.record(.info, operation: "import", message: "Completed \(g) item(s)")
                 } catch {
+                    OperationalLog.shared.record(.error, operation: "import", message: error.localizedDescription)
                     Task.detached { ZipImporter.removeCopiedManifests(allManifests) }
                     self.refreshActionBar()
                     presentAlert("Import failed", error.localizedDescription, style: .warning)

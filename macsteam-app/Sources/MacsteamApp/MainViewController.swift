@@ -13,6 +13,7 @@ final class MainViewController: NSSplitViewController {
     private var diagnosticsVC: DiagnosticsViewController!
     private var libraryVC: LibraryViewController!
     private var saveBackupsVC: SaveBackupsViewController!
+    private var logsVC: LogsViewController!
 
     private let titleLabel: NSTextField = {
         let field = NSTextField(labelWithString: "")
@@ -28,6 +29,7 @@ final class MainViewController: NSSplitViewController {
         case diagnostics
         case library
         case saveBackups
+        case logs
         case importZip
         case config(ConfigViewController.Section)
     }
@@ -50,6 +52,7 @@ final class MainViewController: NSSplitViewController {
         diagnosticsVC = DiagnosticsViewController()
         libraryVC = LibraryViewController()
         saveBackupsVC = SaveBackupsViewController()
+        logsVC = LogsViewController()
 
         detailContainerVC = NSViewController()
         detailContainerVC.view = NSView()
@@ -58,6 +61,7 @@ final class MainViewController: NSSplitViewController {
         detailContainerVC.addChild(diagnosticsVC)
         detailContainerVC.addChild(libraryVC)
         detailContainerVC.addChild(saveBackupsVC)
+        detailContainerVC.addChild(logsVC)
         detailContainerVC.addChild(importVC)
         detailContainerVC.addChild(configVC)
 
@@ -107,6 +111,9 @@ final class MainViewController: NSSplitViewController {
         case .saveBackups:
             child = saveBackupsVC
             title = "Save Backups"
+        case .logs:
+            child = logsVC
+            title = "Logs"
         case .importZip:
             child = importVC
             title = "Import Apps"

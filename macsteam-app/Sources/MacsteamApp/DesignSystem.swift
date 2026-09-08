@@ -231,10 +231,12 @@ enum StatusTone {
 
 @MainActor
 func runBusy(spinner: NSProgressIndicator,
+             operation: String = "operation",
              setBusy: @escaping @MainActor (Bool) -> Void,
              refresh: @escaping @MainActor () -> Void,
              work: @escaping @Sendable () throws -> Void) {
     setBusy(true)
+    OperationalLog.shared.record(.info, operation: operation, message: "Started")
     spinner.startAnimation(nil)
     DispatchQueue.global(qos: .userInitiated).async {
         let result: Result<Void, Error> = Result { try work() }
@@ -242,11 +244,15 @@ func runBusy(spinner: NSProgressIndicator,
             spinner.stopAnimation(nil)
             setBusy(false)
             if case .failure(let error) = result {
+                OperationalLog.shared.record(.error, operation: operation, message: error.localizedDescription)
                 if error is SteamInstaller.PermissionDenied {
                     presentAppManagementAlert()
                 } else {
                     presentAlert("Couldn't complete", error.localizedDescription, style: .warning)
                 }
+            }
+            if case .success = result {
+                OperationalLog.shared.record(.info, operation: operation, message: "Completed")
             }
             refresh()
         }

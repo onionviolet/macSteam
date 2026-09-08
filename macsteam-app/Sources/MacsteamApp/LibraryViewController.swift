@@ -49,7 +49,10 @@ final class LibraryViewController: NSViewController, NSSearchFieldDelegate {
     func controlTextDidChange(_ obj: Notification) { render() }
 
     @objc private func scanLibrary() {
+        OperationalLog.shared.record(.info, operation: "scan", message: "Installed-game scan started")
         result = SteamLibraryScanner.scan()
+        OperationalLog.shared.record(result.warnings.isEmpty ? .info : .warning, operation: "scan",
+                                     message: "Found \(result.games.count) installed game(s) with \(result.warnings.count) warning(s)")
         render()
     }
 

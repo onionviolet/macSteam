@@ -31,9 +31,16 @@ final class ConfigStore {
     }
 
     func mutate(_ change: (inout MacsteamConfig) -> Void) throws {
+        OperationalLog.shared.record(.info, operation: "settings", message: "Applying a configuration change")
         reconcileWithDiskIfChanged()
         change(&config)
-        try writeAtomically()
+        do {
+            try writeAtomically()
+            OperationalLog.shared.record(.info, operation: "settings", message: "Configuration change completed")
+        } catch {
+            OperationalLog.shared.record(.error, operation: "settings", message: error.localizedDescription)
+            throw error
+        }
     }
 
     func removeApps(_ ids: [Int]) throws {

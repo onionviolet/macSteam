@@ -280,7 +280,7 @@ final class InstallViewController: NSViewController {
         headlineLabel.stringValue = "\(verb)…"
         detailLabel.stringValue = ""
 
-        MacsteamApp.runBusy(spinner: spinner, setBusy: { [self] busy in
+        MacsteamApp.runBusy(spinner: spinner, operation: verb.lowercased(), setBusy: { [self] busy in
             installButton.isEnabled = !busy && bundledDylib != nil
             uninstallButton.isEnabled = !busy
             updateBlockButton.isEnabled = !busy

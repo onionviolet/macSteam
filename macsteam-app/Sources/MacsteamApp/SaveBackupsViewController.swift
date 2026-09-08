@@ -65,11 +65,13 @@ final class SaveBackupsViewController: NSViewController {
         panel.prompt = "Back Up"
         guard panel.runModal() == .OK, let source = panel.url else { return }
         do {
+            OperationalLog.shared.record(.info, operation: "backup", message: "Local save backup started for game \(id)")
             _ = try manager.createBackup(gameID: id, title: title, source: source)
+            OperationalLog.shared.record(.info, operation: "backup", message: "Local save backup completed for game \(id)")
             records = manager.list(gameID: id)
             status.stringValue = "Backup completed. Existing files were not changed."
             renderBackups(keepStatus: true)
-        } catch { status.stringValue = error.localizedDescription }
+        } catch { OperationalLog.shared.record(.error, operation: "backup", message: error.localizedDescription); status.stringValue = error.localizedDescription }
     }
 
     @objc private func restoreBackup() {
@@ -91,11 +93,13 @@ final class SaveBackupsViewController: NSViewController {
         alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         do {
+            OperationalLog.shared.record(.info, operation: "restore", message: "Local save restore started for game \(record.gameID)")
             _ = try manager.restore(record, to: destination)
+            OperationalLog.shared.record(.info, operation: "restore", message: "Local save restore completed for game \(record.gameID)")
             records = manager.list(gameID: record.gameID)
             status.stringValue = "Restore completed and the previous data was saved as a safety backup."
             renderBackups(keepStatus: true)
-        } catch { status.stringValue = error.localizedDescription }
+        } catch { OperationalLog.shared.record(.error, operation: "restore", message: error.localizedDescription); status.stringValue = error.localizedDescription }
     }
 
     private func renderBackups(keepStatus: Bool = false) {

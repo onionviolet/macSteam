@@ -37,6 +37,7 @@ final class UpdaterManager: NSObject, ObservableObject {
     }
 
     func checkForUpdates() {
+        OperationalLog.shared.record(.info, operation: "update", message: "Manual update check requested")
         #if DEBUG
         return
         #else
