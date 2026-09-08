@@ -51,6 +51,10 @@ final class ConfigStore {
         try mutate { $0.hideWhatsNew = on }
     }
 
+    func apply(_ portable: PortableSettings) throws {
+        try mutate { $0.hideWhatsNew = portable.settings.hideWhatsNew }
+    }
+
     // MARK: - conflict + backup internals
 
     private func reconcileWithDiskIfChanged() {

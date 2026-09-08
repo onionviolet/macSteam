@@ -35,6 +35,6 @@ This management suite does not implement or improve ownership spoofing, license 
 2. Installed-game library: complete. Verified with parser and partial-scan tests, a clean release app build, and a live read-only library smoke check on 2026-09-07.
 3. Local save backup and restore: complete for user-selected local folders. Verified with traversal, symlink, cancellation cleanup, versioning, and pre-restore safety-backup tests plus a native UI smoke check on 2026-09-07. Automatic save-location data and cloud providers remain out of scope.
 4. Operational logging: complete. Install, uninstall, repair, import, update, scan, backup, restore, and settings operations emit redacted structured entries with bounded retention and a searchable clear/copy/export viewer.
-5. Configuration portability: planned.
+5. Configuration portability: complete for safe app preferences. Schema version 1 excludes game access data, rejects unknown fields and versions, previews changes, backs up the previous config, writes atomically, and exposes recovery backups.
 
 Only items explicitly marked complete after tests and a clean config-app build are implemented product behavior.

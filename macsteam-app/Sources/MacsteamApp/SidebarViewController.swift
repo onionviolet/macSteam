@@ -39,6 +39,8 @@ final class SidebarViewController: NSViewController {
               item: .repair),
         .leaf(title: "Settings", symbol: ConfigViewController.Section.settings.symbol,
               item: .config(.settings)),
+        .leaf(title: "Portability", symbol: "arrow.left.arrow.right.square",
+              item: .portability),
     ]
 
     init(onSelect: @escaping (MainViewController.Item) -> Void) {
