@@ -27,6 +27,8 @@ final class SidebarViewController: NSViewController {
         .group("macSteam"),
         .leaf(title: "Diagnostics", symbol: "stethoscope",
               item: .diagnostics),
+        .leaf(title: "Logs", symbol: "doc.text.magnifyingglass",
+              item: .logs),
         .leaf(title: "Install", symbol: "shield.lefthalf.filled",
               item: .install),
         .leaf(title: "Repair Steam", symbol: "wrench.and.screwdriver",

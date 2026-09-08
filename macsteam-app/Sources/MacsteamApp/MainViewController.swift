@@ -11,6 +11,7 @@ final class MainViewController: NSSplitViewController {
     private var installVC: InstallViewController!
     private var repairVC: RepairViewController!
     private var diagnosticsVC: DiagnosticsViewController!
+    private var logsVC: LogsViewController!
 
     private let titleLabel: NSTextField = {
         let field = NSTextField(labelWithString: "")
@@ -24,6 +25,7 @@ final class MainViewController: NSSplitViewController {
         case install
         case repair
         case diagnostics
+        case logs
         case importZip
         case config(ConfigViewController.Section)
     }
@@ -44,12 +46,14 @@ final class MainViewController: NSSplitViewController {
         installVC = InstallViewController()
         repairVC = RepairViewController()
         diagnosticsVC = DiagnosticsViewController()
+        logsVC = LogsViewController()
 
         detailContainerVC = NSViewController()
         detailContainerVC.view = NSView()
         detailContainerVC.addChild(installVC)
         detailContainerVC.addChild(repairVC)
         detailContainerVC.addChild(diagnosticsVC)
+        detailContainerVC.addChild(logsVC)
         detailContainerVC.addChild(importVC)
         detailContainerVC.addChild(configVC)
 
@@ -93,6 +97,9 @@ final class MainViewController: NSSplitViewController {
         case .diagnostics:
             child = diagnosticsVC
             title = "Diagnostics"
+        case .logs:
+            child = logsVC
+            title = "Logs"
         case .importZip:
             child = importVC
             title = "Import Apps"
