@@ -13,6 +13,8 @@ scratch/
 signatures_generated.json
 out/
 tests/
+!macsteam-app/Tests/
+!macsteam-app/Tests/**
 
 xcuserdata/
 *.xcuserstate

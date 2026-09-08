@@ -23,6 +23,8 @@ Pretty boring.
 
 The companion app can handle all the basics. It can deploy the macSteam dylib, it can import games, you can use it to remove games from your unlock list, you can toggle the features that support being toggled (with more to come). You can also edit the config by hand by going to ```~/Library/Application Support/macSteam``` and editing the config file.
 
+The native app is also growing into a legitimate Steam management and support utility. Installation diagnostics are available now, with read-only library discovery, safe local save backups, operational logs, and configuration portability tracked in the [current product contract](docs/USER_VISION.md). The [SFF feature audit](docs/SFF_FEATURE_AUDIT.md) records inspiration, rejected scope, and licensing decisions.
+
 ## Usage
 
 Download the latest release from the [Releases page](https://github.com/Selectively11/macsteam/releases).
@@ -43,8 +45,12 @@ The config app:
 
 ```bash
 cd macsteam-app
+swift package resolve
+swift test
 bash make_app.sh
 ```
+
+`swift package resolve` is the dependency bootstrap needed by a fresh clone. `make_app.sh` performs a release build and creates an ad-hoc-signed `macSteam Config.app`.
 
 There is also a science experiment in the repo, a macSteam launcher that does not modify the Steam app bundle in any way. It is included for the enjoyment of others, but is not intended to be used. 
 
@@ -54,4 +60,4 @@ PRs are welcome. I could currently badly use a **real name** and an **icon**. I'
 
 ## License
 
-AGPLV2 with grifters being the reason why.
+macSteam is distributed under the GNU Affero General Public License version 3. See [LICENSE](LICENSE). Third-party attribution is recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
