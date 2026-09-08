@@ -167,6 +167,7 @@ final class RepairViewController: NSViewController {
     }
 
     private func runRepair() {
+        OperationalLog.shared.record(.info, operation: "repair", message: "Started")
         setBusy(true)
         spinner.startAnimation(nil)
         setRepairing("Getting ready to repair Steam")
@@ -183,8 +184,10 @@ final class RepairViewController: NSViewController {
                 self.setBusy(false)
                 switch result {
                 case .success:
+                    OperationalLog.shared.record(.info, operation: "repair", message: "Completed")
                     self.setSucceeded()
                 case .failure(let error):
+                    OperationalLog.shared.record(.error, operation: "repair", message: error.localizedDescription)
                     if error is SteamInstaller.PermissionDenied {
                         presentAppManagementAlert()
                     } else {
