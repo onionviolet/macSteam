@@ -27,4 +27,15 @@ final class OperationalLogTests: XCTestCase {
         try log.clear()
         XCTAssertTrue(log.entries().isEmpty)
     }
+
+    func testExportReredactsPersistedLegacyEntries() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let file = root.appendingPathComponent("log.jsonl")
+        try #"{"level":"info","message":"token=legacy","operation":"scan","timestamp":"2026-09-07T12:00:00Z"}"#
+            .write(to: file, atomically: true, encoding: .utf8)
+        let output = OperationalLog(fileURL: file).exportText()
+        XCTAssertFalse(output.contains("legacy"))
+    }
 }

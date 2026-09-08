@@ -2,9 +2,12 @@ import AppKit
 
 final class PortabilityViewController: NSViewController {
     private let store: ConfigStore
+    private let onApplied: () -> Void
     private let status = NSTextField(wrappingLabelWithString: "Export creates a versioned JSON document containing only safe app preferences.")
 
-    init(store: ConfigStore) { self.store = store; super.init(nibName: nil, bundle: nil) }
+    init(store: ConfigStore, onApplied: @escaping () -> Void) {
+        self.store = store; self.onApplied = onApplied; super.init(nibName: nil, bundle: nil)
+    }
     required init?(coder: NSCoder) { fatalError() }
 
     override func loadView() {
@@ -51,6 +54,7 @@ final class PortabilityViewController: NSViewController {
             let alert = NSAlert(); alert.messageText = "Apply imported settings?"; alert.informativeText = changes.map { "\($0.name): \($0.oldValue) to \($0.newValue)" }.joined(separator: "\n") + "\n\nThe current config will be backed up first."; alert.addButton(withTitle: "Back Up and Apply"); alert.addButton(withTitle: "Cancel")
             guard alert.runModal() == .alertFirstButtonReturn else { return }
             try store.apply(document)
+            onApplied()
             OperationalLog.shared.record(.info, operation: "settings import", message: "Validated portable settings applied")
             status.stringValue = "Settings imported. The previous config is available in Recovery Backups."
         } catch { OperationalLog.shared.record(.error, operation: "settings import", message: error.localizedDescription); status.stringValue = error.localizedDescription }

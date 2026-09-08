@@ -1,11 +1,11 @@
 import Foundation
 
-enum GameCompatibility: String, Equatable {
+enum GameCompatibility: String, Equatable, Sendable {
     case macOS = "macOS app found"
     case unknown = "Not verifiable locally"
 }
 
-struct InstalledGame: Equatable {
+struct InstalledGame: Equatable, Sendable {
     let appID: Int
     let title: String
     let installDirectory: URL
@@ -16,7 +16,7 @@ struct InstalledGame: Equatable {
     let lastBackup: Date?
 }
 
-struct LibraryScanResult: Equatable {
+struct LibraryScanResult: Equatable, Sendable {
     let games: [InstalledGame]
     let warnings: [String]
 }
@@ -74,13 +74,14 @@ enum SteamLibraryScanner {
                     warnings.append("One manifest in Library \(index + 1) was invalid.")
                     continue
                 }
-                guard seen.insert(manifest.appID).inserted else { continue }
+                guard !seen.contains(manifest.appID) else { continue }
                 let common = steamapps.appendingPathComponent("common", isDirectory: true).standardizedFileURL
                 let install = common.appendingPathComponent(manifest.installDir, isDirectory: true).standardizedFileURL
                 guard install.path.hasPrefix(common.path + "/"), fileManager.fileExists(atPath: install.path) else {
                     warnings.append("\(manifest.title) has a manifest but no install folder.")
                     continue
                 }
+                seen.insert(manifest.appID)
                 games.append(InstalledGame(appID: manifest.appID, title: manifest.title,
                     installDirectory: install, libraryLabel: "Library \(index + 1)",
                     sizeOnDisk: manifest.size, compatibility: compatibility(at: install, fileManager: fileManager),
@@ -102,9 +103,6 @@ enum SteamLibraryScanner {
     }
 
     private static func newestBackup(for appID: Int, root: URL, fileManager: FileManager) -> Date? {
-        let directory = root.appendingPathComponent(String(appID), isDirectory: true)
-        guard let entries = try? fileManager.contentsOfDirectory(at: directory,
-            includingPropertiesForKeys: [.contentModificationDateKey], options: [.skipsHiddenFiles]) else { return nil }
-        return entries.compactMap { try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate }.compactMap { $0 }.max()
+        SaveBackupManager(root: root, fileManager: fileManager).list(gameID: String(appID)).first?.createdAt
     }
 }

@@ -5,6 +5,7 @@ final class LibraryViewController: NSViewController, NSSearchFieldDelegate {
     private let summary = NSTextField(labelWithString: "")
     private let content = NSTextView()
     private var result = LibraryScanResult(games: [], warnings: [])
+    private var isScanning = false
 
     override func loadView() {
         let root = NSView(frame: NSRect(x: 0, y: 0, width: 620, height: 460))
@@ -42,18 +43,27 @@ final class LibraryViewController: NSViewController, NSSearchFieldDelegate {
             scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 260),
         ])
         view = root
-        scanLibrary()
     }
 
     override func viewDidAppear() { super.viewDidAppear(); scanLibrary() }
     func controlTextDidChange(_ obj: Notification) { render() }
 
     @objc private func scanLibrary() {
+        guard !isScanning else { return }
+        isScanning = true
+        summary.stringValue = "Scanning configured Steam libraries…"
         OperationalLog.shared.record(.info, operation: "scan", message: "Installed-game scan started")
-        result = SteamLibraryScanner.scan()
-        OperationalLog.shared.record(result.warnings.isEmpty ? .info : .warning, operation: "scan",
-                                     message: "Found \(result.games.count) installed game(s) with \(result.warnings.count) warning(s)")
-        render()
+        DispatchQueue.global(qos: .userInitiated).async {
+            let scanned = SteamLibraryScanner.scan()
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.isScanning = false
+                self.result = scanned
+                OperationalLog.shared.record(scanned.warnings.isEmpty ? .info : .warning, operation: "scan",
+                                             message: "Found \(scanned.games.count) installed game(s) with \(scanned.warnings.count) warning(s)")
+                self.render()
+            }
+        }
     }
 
     private func render() {
@@ -68,7 +78,7 @@ final class LibraryViewController: NSViewController, NSSearchFieldDelegate {
         content.string = games.map { game in
             let size = game.sizeOnDisk.map { formatter.string(fromByteCount: $0) } ?? "Size unavailable"
             let backup = game.lastBackup.map { DateFormatter.localizedString(from: $0, dateStyle: .medium, timeStyle: .short) } ?? "Never"
-            return "\(game.title)\nApp ID \(game.appID) | \(game.libraryLabel) | \(size)\n\(game.compatibility.rawValue) | \(game.configState) | Last backup: \(backup)"
+            return "\(game.title)\nApp ID \(game.appID) | \(game.libraryLabel) | \(size)\nsteamapps/common/\(game.installDirectory.lastPathComponent)\n\(game.compatibility.rawValue) | \(game.configState) | Last backup: \(backup)"
         }.joined(separator: "\n\n")
     }
 }

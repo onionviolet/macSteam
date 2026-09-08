@@ -70,26 +70,45 @@ enum HealthDiagnostics {
             ])
         }
 
+        let steamReadable = readable(environment.steamExecutable)
+        let isSupportedArchitecture = environment.architecture.contains("arm64")
+        let hasPackage = exists(environment.packageDirectory)
+        let hasConfig = exists(environment.configFile)
+        let configReadable = hasConfig && readable(environment.configFile)
+        let hasComponent = exists(environment.injectedDylib)
         var checks = [
-            HealthCheck(name: "Steam application", status: readable(environment.steamExecutable) ? .pass : .failure,
-                        detail: readable(environment.steamExecutable) ? "Present and readable" : "Executable is unreadable"),
-            HealthCheck(name: "Host architecture", status: environment.architecture.contains("arm64") ? .pass : .warning,
+            HealthCheck(name: "Steam application", status: steamReadable ? .pass : .failure,
+                        detail: steamReadable ? "Present and readable" : "Executable is unreadable"),
+            HealthCheck(name: "Host architecture", status: isSupportedArchitecture ? .pass : .failure,
                         detail: environment.architecture),
-            HealthCheck(name: "Client package", status: exists(environment.packageDirectory) ? .pass : .warning,
-                        detail: exists(environment.packageDirectory) ? "Present" : "Open Steam once to unpack it"),
-            HealthCheck(name: "Configuration", status: exists(environment.configFile) ? .pass : .warning,
-                        detail: exists(environment.configFile) ? "Present and readable: \(readable(environment.configFile))" : "Not created yet"),
-            HealthCheck(name: "Managed component", status: exists(environment.injectedDylib) ? .pass : .warning,
-                        detail: exists(environment.injectedDylib) ? "Present" : "Not installed")
+            HealthCheck(name: "Client package", status: hasPackage ? .pass : .failure,
+                        detail: hasPackage ? "Present" : "Open Steam once to unpack it"),
+            HealthCheck(name: "Configuration", status: configReadable ? .pass : .failure,
+                        detail: configReadable ? "Present and readable" : (hasConfig ? "Present but unreadable" : "Missing")),
+            HealthCheck(name: "Managed component", status: hasComponent ? .pass : .warning,
+                        detail: hasComponent ? "Present" : "Not installed")
         ]
+
+        if !isSupportedArchitecture {
+            return InstallationHealth(state: .unsupported, summary: "This Mac architecture is not supported.", checks: checks)
+        }
+        if !hasComponent {
+            return InstallationHealth(state: .missing, summary: "The managed component is not installed.", checks: checks)
+        }
 
         if let detected = environment.detectedBuild, detected != environment.supportedBuild {
             checks.append(HealthCheck(name: "Steam build", status: .failure,
                                       detail: "Detected \(detected); supported \(environment.supportedBuild)"))
             return InstallationHealth(state: .unsupported, summary: "This Steam build is not supported.", checks: checks)
         }
-        checks.append(HealthCheck(name: "Steam build", status: environment.detectedBuild == nil ? .warning : .pass,
+        checks.append(HealthCheck(name: "Steam build", status: environment.detectedBuild == nil ? .failure : .pass,
                                   detail: environment.detectedBuild ?? "Could not determine build"))
+
+        if environment.detectedBuild == nil || environment.bundledVersion == nil || environment.installedVersion == nil {
+            checks.append(HealthCheck(name: "Component version", status: .failure,
+                                      detail: "Installed or bundled version metadata is missing"))
+            return InstallationHealth(state: .needsRepair, summary: "Installation metadata is incomplete.", checks: checks)
+        }
 
         if let bundled = environment.bundledVersion, let installed = environment.installedVersion,
            bundled != installed {
@@ -116,13 +135,15 @@ enum HealthDiagnostics {
 
 enum DiagnosticRedactor {
     private static let sensitiveKey = try! NSRegularExpression(
-        pattern: #"(?i)\b(token|password|passwd|credential|secret|api[_-]?key|steamid|accountid)\b\s*[:=]\s*[^\s,;]+"#)
+        pattern: #"(?i)[\"']?\b(token|access[_-]?token|password|passwd|credential|secret|api[_-]?key|steamid|accountid)\b[\"']?\s*(?::|=|\s)\s*(?:\"[^\"]*\"|'[^']*'|[^\s,;&]+)"#)
     private static let steamID = try! NSRegularExpression(pattern: #"\b7656119\d{10}\b|\bSTEAM_[0-5]:[01]:\d+\b|\b\[U:1:\d+\]"#)
     private static let userPath = try! NSRegularExpression(pattern: #"/Users/[^/\s]+"#)
+    private static let absolutePath = try! NSRegularExpression(
+        pattern: #"(?<![A-Za-z0-9])/(?:Applications|Library|System|Users|Volumes|private|tmp|var|opt|usr|etc)(?:/[^\s,;:]+)+"#)
 
     static func redact(_ input: String, home: URL = FileManager.default.homeDirectoryForCurrentUser) -> String {
         var output = input.replacingOccurrences(of: home.path, with: "<HOME>")
-        for regex in [sensitiveKey, steamID, userPath] {
+        for regex in [sensitiveKey, steamID, userPath, absolutePath] {
             let range = NSRange(output.startIndex..., in: output)
             output = regex.stringByReplacingMatches(in: output, range: range, withTemplate: "<REDACTED>")
         }

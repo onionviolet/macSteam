@@ -42,7 +42,7 @@ final class OperationalLog: @unchecked Sendable {
     func exportText(filter: String = "") -> String {
         let query = filter.trimmingCharacters(in: .whitespacesAndNewlines)
         return entries().filter { query.isEmpty || $0.operation.localizedCaseInsensitiveContains(query) || $0.message.localizedCaseInsensitiveContains(query) }
-            .map { "\(ISO8601DateFormatter().string(from: $0.timestamp)) [\($0.level.rawValue.uppercased())] \($0.operation): \($0.message)" }
+            .map { "\(ISO8601DateFormatter().string(from: $0.timestamp)) [\($0.level.rawValue.uppercased())] \(DiagnosticRedactor.redact($0.operation)): \(DiagnosticRedactor.redact($0.message))" }
             .joined(separator: "\n")
     }
 

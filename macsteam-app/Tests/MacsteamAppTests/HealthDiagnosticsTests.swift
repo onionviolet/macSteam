@@ -36,6 +36,36 @@ final class HealthDiagnosticsTests: XCTestCase {
         XCTAssertEqual(HealthDiagnostics.inspect(env).state, .healthy)
     }
 
+    func testMissingManagedComponentIsMissing() throws {
+        let env = environment(appExists: true, detected: "known", supported: "known", bundled: "1", installed: "1")
+        try createRequiredFiles(env)
+        try FileManager.default.removeItem(at: env.injectedDylib)
+        XCTAssertEqual(HealthDiagnostics.inspect(env).state, .missing)
+    }
+
+    func testUnknownBuildNeedsRepair() throws {
+        let env = environment(appExists: true, detected: nil, supported: "known", bundled: "1", installed: "1")
+        try createRequiredFiles(env)
+        XCTAssertEqual(HealthDiagnostics.inspect(env).state, .needsRepair)
+    }
+
+    func testIntelIsUnsupported() throws {
+        let base = environment(appExists: true, detected: "known", supported: "known", bundled: "1", installed: "1")
+        let env = HealthEnvironment(steamApp: base.steamApp, steamExecutable: base.steamExecutable,
+            injectedDylib: base.injectedDylib, configFile: base.configFile, packageDirectory: base.packageDirectory,
+            supportedBuild: base.supportedBuild, detectedBuild: base.detectedBuild, bundledVersion: base.bundledVersion,
+            installedVersion: base.installedVersion, architecture: "Intel (x86_64)")
+        try createRequiredFiles(env)
+        XCTAssertEqual(HealthDiagnostics.inspect(env).state, .unsupported)
+    }
+
+    func testDetectsSteamInAlternateApplicationFolder() throws {
+        let missing = root.appendingPathComponent("Missing.app")
+        let alternate = root.appendingPathComponent("Applications/Steam.app")
+        try FileManager.default.createDirectory(at: alternate, withIntermediateDirectories: true)
+        XCTAssertEqual(Paths.detectSteamApp(candidates: [missing, alternate]).path, alternate.path)
+    }
+
     func testRedactorRemovesPersonalAndAccountData() {
         let input = "/Users/alice/Library token=abc 76561191234567890 STEAM_0:1:123 password:hello"
         let result = DiagnosticRedactor.redact(input, home: URL(fileURLWithPath: "/Users/alice"))
@@ -44,6 +74,14 @@ final class HealthDiagnosticsTests: XCTestCase {
         XCTAssertFalse(result.contains("7656119"))
         XCTAssertFalse(result.contains("STEAM_"))
         XCTAssertFalse(result.contains("hello"))
+    }
+
+    func testRedactorHandlesStructuredSecretsAndUnrelatedPaths() {
+        let input = #"{"accountid":"123", "token" "secret value"} access_token=abc /Volumes/Private/User/save /tmp/person/file"#
+        let result = DiagnosticRedactor.redact(input)
+        for secret in ["123", "secret value", "abc", "/Volumes/Private", "/tmp/person"] {
+            XCTAssertFalse(result.contains(secret), "Leaked \(secret)")
+        }
     }
 
     private func environment(appExists: Bool, detected: String? = nil, supported: String = "known",

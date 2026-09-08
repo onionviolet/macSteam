@@ -33,11 +33,15 @@ final class ConfigStore {
     func mutate(_ change: (inout MacsteamConfig) -> Void) throws {
         OperationalLog.shared.record(.info, operation: "settings", message: "Applying a configuration change")
         reconcileWithDiskIfChanged()
+        let previousConfig = config
+        let previousHash = lastKnownHash
         change(&config)
         do {
             try writeAtomically()
             OperationalLog.shared.record(.info, operation: "settings", message: "Configuration change completed")
         } catch {
+            config = previousConfig
+            lastKnownHash = previousHash
             OperationalLog.shared.record(.error, operation: "settings", message: error.localizedDescription)
             throw error
         }
@@ -68,16 +72,16 @@ final class ConfigStore {
     private func writeAtomically() throws {
         try FileManager.default.createDirectory(
             at: configFile.deletingLastPathComponent(), withIntermediateDirectories: true)
-        backupCurrentFile()
+        try backupCurrentFile()
         let text = config.serialize(header: Self.headerText)
         try text.write(to: configFile, atomically: true, encoding: .utf8)
         lastKnownHash = Self.hash(text)
     }
 
-    private func backupCurrentFile() {
+    private func backupCurrentFile() throws {
         let fm = FileManager.default
         guard fm.fileExists(atPath: configFile.path) else { return }
-        try? fm.createDirectory(at: backupDir, withIntermediateDirectories: true)
+        try fm.createDirectory(at: backupDir, withIntermediateDirectories: true)
         let ts = Int(Date().timeIntervalSince1970)
         var dest = backupDir.appendingPathComponent("config.yaml.\(ts).bak")
         var n = 1
@@ -85,7 +89,7 @@ final class ConfigStore {
             dest = backupDir.appendingPathComponent("config.yaml.\(ts)-\(n).bak")
             n += 1
         }
-        try? fm.copyItem(at: configFile, to: dest)
+        try fm.copyItem(at: configFile, to: dest)
         pruneBackups(in: backupDir)
     }
 

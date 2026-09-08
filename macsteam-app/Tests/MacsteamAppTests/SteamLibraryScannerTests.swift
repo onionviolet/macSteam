@@ -36,4 +36,19 @@ final class SteamLibraryScannerTests: XCTestCase {
         XCTAssertEqual(result.games.first?.compatibility, .macOS)
         XCTAssertEqual(result.warnings.count, 1)
     }
+
+    func testStaleDuplicateDoesNotHideValidInstallation() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let second = root.appendingPathComponent("Second")
+        try FileManager.default.createDirectory(at: root.appendingPathComponent("steamapps"), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: second.appendingPathComponent("steamapps/common/Valid"), withIntermediateDirectories: true)
+        let manifest = #""appid" "42" "name" "Valid" "installdir" "Valid""#
+        try manifest.write(to: root.appendingPathComponent("steamapps/appmanifest_42.acf"), atomically: true, encoding: .utf8)
+        try manifest.write(to: second.appendingPathComponent("steamapps/appmanifest_42.acf"), atomically: true, encoding: .utf8)
+        let folders = #""libraryfolders" { "1" { "path" "\#(second.path)" } }"#
+        try folders.write(to: root.appendingPathComponent("steamapps/libraryfolders.vdf"), atomically: true, encoding: .utf8)
+        let result = SteamLibraryScanner.scan(steamRoot: root, backupRoot: root.appendingPathComponent("backups"))
+        XCTAssertEqual(result.games.map(\.title), ["Valid"])
+    }
 }

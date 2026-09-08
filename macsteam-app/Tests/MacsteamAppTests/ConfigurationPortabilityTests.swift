@@ -37,4 +37,18 @@ final class ConfigurationPortabilityTests: XCTestCase {
         XCTAssertTrue(try String(contentsOf: configURL).contains("HideWhatsNew: yes"))
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: backupURL.path).count, 1)
     }
+
+    func testFailedBackupAbortsWriteAndRollsBackMemory() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let configURL = root.appendingPathComponent("config.yaml")
+        let invalidBackup = root.appendingPathComponent("not-a-directory")
+        try "HideWhatsNew: no\n".write(to: configURL, atomically: true, encoding: .utf8)
+        try "file".write(to: invalidBackup, atomically: true, encoding: .utf8)
+        let store = ConfigStore(configFile: configURL, backupDir: invalidBackup); store.load()
+        XCTAssertThrowsError(try store.apply(PortableSettings(schemaVersion: 1, settings: .init(hideWhatsNew: true))))
+        XCTAssertFalse(store.config.hideWhatsNew)
+        XCTAssertTrue(try String(contentsOf: configURL).contains("HideWhatsNew: no"))
+    }
 }

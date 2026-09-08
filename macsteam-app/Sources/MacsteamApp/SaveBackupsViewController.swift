@@ -6,7 +6,12 @@ final class SaveBackupsViewController: NSViewController {
     private let titleField = NSTextField(string: "")
     private let backups = NSPopUpButton()
     private let status = NSTextField(wrappingLabelWithString: "No save folder selected.")
+    private let cancelButton = NSButton(title: "Cancel", target: nil, action: nil)
+    private let loadButton = NSButton(title: "Load Backups", target: nil, action: nil)
+    private let createButton = NSButton(title: "Back Up Folder…", target: nil, action: nil)
+    private let restoreButton = NSButton(title: "Restore Selected…", target: nil, action: nil)
     private var records: [SaveBackupRecord] = []
+    private var activeCancellation: BackupCancellation?
 
     override func loadView() {
         let root = NSView(frame: NSRect(x: 0, y: 0, width: 620, height: 460))
@@ -17,12 +22,12 @@ final class SaveBackupsViewController: NSViewController {
         backups.setAccessibilityLabel("Available backups")
         status.textColor = .secondaryLabelColor
         status.setAccessibilityLabel("Backup status")
-        let refresh = makeButton(title: "Load Backups", target: self, action: #selector(loadBackups))
-        let create = makeButton(title: "Back Up Folder…", target: self, action: #selector(createBackup))
-        create.keyEquivalent = "b"
-        create.keyEquivalentModifierMask = [.command]
-        let restore = makeButton(title: "Restore Selected…", target: self, action: #selector(restoreBackup))
-        let buttons = NSStackView(views: [refresh, create, restore])
+        loadButton.target = self; loadButton.action = #selector(loadBackups)
+        createButton.target = self; createButton.action = #selector(createBackup)
+        createButton.keyEquivalent = "b"; createButton.keyEquivalentModifierMask = [.command]
+        restoreButton.target = self; restoreButton.action = #selector(restoreBackup)
+        cancelButton.target = self; cancelButton.action = #selector(cancelBackupOperation); cancelButton.isEnabled = false
+        let buttons = NSStackView(views: [loadButton, createButton, restoreButton, cancelButton])
         buttons.orientation = .horizontal
         buttons.spacing = 8
         let explanation = NSTextField(wrappingLabelWithString:
@@ -64,14 +69,13 @@ final class SaveBackupsViewController: NSViewController {
         panel.allowsMultipleSelection = false
         panel.prompt = "Back Up"
         guard panel.runModal() == .OK, let source = panel.url else { return }
-        do {
-            OperationalLog.shared.record(.info, operation: "backup", message: "Local save backup started for game \(id)")
-            _ = try manager.createBackup(gameID: id, title: title, source: source)
-            OperationalLog.shared.record(.info, operation: "backup", message: "Local save backup completed for game \(id)")
-            records = manager.list(gameID: id)
-            status.stringValue = "Backup completed. Existing files were not changed."
-            renderBackups(keepStatus: true)
-        } catch { OperationalLog.shared.record(.error, operation: "backup", message: error.localizedDescription); status.stringValue = error.localizedDescription }
+        OperationalLog.shared.record(.info, operation: "backup", message: "Local save backup started for game \(id)")
+        let cancellation = beginOperation("Backing up…")
+        DispatchQueue.global(qos: .userInitiated).async { [manager] in
+            let result = Result { try manager.createBackup(gameID: id, title: title, source: source,
+                                                            cancelled: { cancellation.isCancelled }) }
+            DispatchQueue.main.async { [weak self] in self?.finishBackup(result, gameID: id) }
+        }
     }
 
     @objc private func restoreBackup() {
@@ -92,14 +96,48 @@ final class SaveBackupsViewController: NSViewController {
         alert.addButton(withTitle: "Create Safety Backup and Restore")
         alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
-        do {
-            OperationalLog.shared.record(.info, operation: "restore", message: "Local save restore started for game \(record.gameID)")
-            _ = try manager.restore(record, to: destination)
-            OperationalLog.shared.record(.info, operation: "restore", message: "Local save restore completed for game \(record.gameID)")
-            records = manager.list(gameID: record.gameID)
-            status.stringValue = "Restore completed and the previous data was saved as a safety backup."
-            renderBackups(keepStatus: true)
-        } catch { OperationalLog.shared.record(.error, operation: "restore", message: error.localizedDescription); status.stringValue = error.localizedDescription }
+        OperationalLog.shared.record(.info, operation: "restore", message: "Local save restore started for game \(record.gameID)")
+        let cancellation = beginOperation("Restoring…")
+        DispatchQueue.global(qos: .userInitiated).async { [manager] in
+            let result = Result { try manager.restore(record, to: destination, cancelled: { cancellation.isCancelled }) }
+            DispatchQueue.main.async { [weak self] in self?.finishRestore(result, gameID: record.gameID) }
+        }
+    }
+
+    @objc private func cancelBackupOperation() { activeCancellation?.cancel(); status.stringValue = "Cancelling safely…" }
+
+    private func beginOperation(_ message: String) -> BackupCancellation {
+        let cancellation = BackupCancellation(); activeCancellation = cancellation; cancelButton.isEnabled = true
+        gameID.isEnabled = false; titleField.isEnabled = false; backups.isEnabled = false; status.stringValue = message
+        loadButton.isEnabled = false; createButton.isEnabled = false; restoreButton.isEnabled = false
+        return cancellation
+    }
+
+    private func endOperation() {
+        activeCancellation = nil; cancelButton.isEnabled = false; gameID.isEnabled = true; titleField.isEnabled = true
+        loadButton.isEnabled = true; createButton.isEnabled = true; restoreButton.isEnabled = true
+    }
+
+    private func finishBackup(_ result: Result<SaveBackupRecord, Error>, gameID: String) {
+        endOperation()
+        switch result {
+        case .success:
+            OperationalLog.shared.record(.info, operation: "backup", message: "Local save backup completed for game \(gameID)")
+            records = manager.list(gameID: gameID); status.stringValue = "Backup completed. Existing files were not changed."; renderBackups(keepStatus: true)
+        case .failure(let error):
+            OperationalLog.shared.record(.error, operation: "backup", message: error.localizedDescription); status.stringValue = error.localizedDescription; renderBackups(keepStatus: true)
+        }
+    }
+
+    private func finishRestore(_ result: Result<SaveBackupRecord?, Error>, gameID: String) {
+        endOperation()
+        switch result {
+        case .success:
+            OperationalLog.shared.record(.info, operation: "restore", message: "Local save restore completed for game \(gameID)")
+            records = manager.list(gameID: gameID); status.stringValue = "Restore completed and the previous data was saved as a safety backup."; renderBackups(keepStatus: true)
+        case .failure(let error):
+            OperationalLog.shared.record(.error, operation: "restore", message: error.localizedDescription); status.stringValue = error.localizedDescription; renderBackups(keepStatus: true)
+        }
     }
 
     private func renderBackups(keepStatus: Bool = false) {
@@ -107,6 +145,7 @@ final class SaveBackupsViewController: NSViewController {
         let formatter = DateFormatter(); formatter.dateStyle = .medium; formatter.timeStyle = .short
         backups.addItems(withTitles: records.map { "\($0.gameTitle), \(formatter.string(from: $0.createdAt)), \($0.originalName)" })
         backups.isEnabled = !records.isEmpty
+        restoreButton.isEnabled = !records.isEmpty && activeCancellation == nil
         if !keepStatus { status.stringValue = records.isEmpty ? "No backups found for this game." : "\(records.count) versioned backup(s) available." }
     }
 }

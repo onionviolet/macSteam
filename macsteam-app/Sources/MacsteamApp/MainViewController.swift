@@ -55,7 +55,9 @@ final class MainViewController: NSSplitViewController {
         libraryVC = LibraryViewController()
         saveBackupsVC = SaveBackupsViewController()
         logsVC = LogsViewController()
-        portabilityVC = PortabilityViewController(store: store)
+        portabilityVC = PortabilityViewController(store: store, onApplied: { [weak self] in
+            self?.configVC.reloadFromStore()
+        })
 
         detailContainerVC = NSViewController()
         detailContainerVC.view = NSView()

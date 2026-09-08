@@ -25,7 +25,7 @@ enum SaveBackupError: LocalizedError {
     }
 }
 
-final class SaveBackupManager {
+final class SaveBackupManager: @unchecked Sendable {
     let root: URL
     private let fileManager: FileManager
 
@@ -38,10 +38,21 @@ final class SaveBackupManager {
                       cancelled: () -> Bool = { false }) throws -> SaveBackupRecord {
         guard Self.safeIdentifier(gameID) else { throw SaveBackupError.invalidIdentifier }
         let source = source.standardizedFileURL
+        guard Self.treesAreDisjoint(source, root) else {
+            throw SaveBackupError.unsafePath("save source and backup storage must be separate")
+        }
         try validateTree(source)
         if cancelled() { throw SaveBackupError.cancelled }
         let gameRoot = root.appendingPathComponent(gameID, isDirectory: true)
-        try fileManager.createDirectory(at: gameRoot, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: root, withIntermediateDirectories: true)
+        try rejectSymlinkChain(root)
+        guard Self.isDescendant(gameRoot, of: root) else { throw SaveBackupError.invalidIdentifier }
+        if fileManager.fileExists(atPath: gameRoot.path) {
+            try rejectSymlinkChain(gameRoot)
+        } else {
+            try fileManager.createDirectory(at: gameRoot, withIntermediateDirectories: false)
+        }
+        try rejectSymlinkChain(gameRoot)
         let name = Self.timestamp() + "-" + UUID().uuidString
         let staging = gameRoot.appendingPathComponent(".\(name).partial", isDirectory: true)
         let final = gameRoot.appendingPathComponent(name, isDirectory: true)
@@ -68,10 +79,26 @@ final class SaveBackupManager {
         guard Self.isDescendant(backup, of: root), !backup.lastPathComponent.hasPrefix(".") else {
             throw SaveBackupError.unsafePath("backup is outside the managed backup folder")
         }
+        try rejectSymlinkChain(root)
+        try rejectSymlinkChain(backup)
+        guard record.schemaVersion == 1, Self.safeIdentifier(record.gameID),
+              let stored = try? Data(contentsOf: backup.appendingPathComponent("metadata.json")),
+              let decoded = try? JSONDecoder.configured.decode(SaveBackupRecord.self, from: stored),
+              decoded.schemaVersion == record.schemaVersion,
+              decoded.gameID == record.gameID,
+              decoded.gameTitle == record.gameTitle,
+              decoded.originalName == record.originalName,
+              decoded.backupDirectory.standardizedFileURL.path == backup.path,
+              abs(decoded.createdAt.timeIntervalSince(record.createdAt)) < 1 else {
+            throw SaveBackupError.unsafePath("backup metadata does not match the selected backup")
+        }
         let payload = backup.appendingPathComponent("payload")
         guard fileManager.fileExists(atPath: payload.path) else { throw SaveBackupError.missingPayload }
         try validateTree(payload)
         let destination = destination.standardizedFileURL
+        guard Self.treesAreDisjoint(destination, root) else {
+            throw SaveBackupError.unsafePath("restore destination and backup storage must be separate")
+        }
         try validateDestination(destination)
         if cancelled() { throw SaveBackupError.cancelled }
 
@@ -83,17 +110,20 @@ final class SaveBackupManager {
         if cancelled() { throw SaveBackupError.cancelled }
         let staging = destination.deletingLastPathComponent()
             .appendingPathComponent(".macsteam-restore-\(UUID().uuidString)", isDirectory: payload.hasDirectoryPath)
-        try fileManager.copyItem(at: payload, to: staging)
+        let previous = destination.deletingLastPathComponent()
+            .appendingPathComponent(".macsteam-previous-\(UUID().uuidString)", isDirectory: destination.hasDirectoryPath)
+        let hadDestination = fileManager.fileExists(atPath: destination.path)
         do {
-            if fileManager.fileExists(atPath: destination.path) { try fileManager.removeItem(at: destination) }
+            try fileManager.copyItem(at: payload, to: staging)
+            if cancelled() { throw SaveBackupError.cancelled }
+            if hadDestination { try fileManager.moveItem(at: destination, to: previous) }
             try fileManager.moveItem(at: staging, to: destination)
+            if hadDestination { try? fileManager.removeItem(at: previous) }
         } catch {
             try? fileManager.removeItem(at: staging)
-            if let safety {
-                let safetyPayload = safety.backupDirectory.appendingPathComponent("payload")
-                if !fileManager.fileExists(atPath: destination.path) {
-                    try? fileManager.copyItem(at: safetyPayload, to: destination)
-                }
+            if hadDestination && !fileManager.fileExists(atPath: destination.path) {
+                do { try fileManager.moveItem(at: previous, to: destination) }
+                catch { throw SaveBackupError.unsafePath("restore failed and the previous data remains at \(previous.lastPathComponent)") }
             }
             throw error
         }
@@ -106,9 +136,12 @@ final class SaveBackupManager {
         guard let entries = try? fileManager.contentsOfDirectory(at: directory,
             includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) else { return [] }
         return entries.compactMap { entry in
-            guard Self.isDescendant(entry.standardizedFileURL, of: root),
+            guard (try? rejectSymlinkChain(entry)) != nil,
+                  Self.isDescendant(entry.standardizedFileURL, of: root),
                   let data = try? Data(contentsOf: entry.appendingPathComponent("metadata.json")),
-                  let record = try? JSONDecoder.configured.decode(SaveBackupRecord.self, from: data) else { return nil }
+                  let record = try? JSONDecoder.configured.decode(SaveBackupRecord.self, from: data),
+                  record.schemaVersion == 1, record.gameID == gameID,
+                  record.backupDirectory.standardizedFileURL.path == entry.standardizedFileURL.path else { return nil }
             return record
         }.sorted { $0.createdAt > $1.createdAt }
     }
@@ -119,7 +152,8 @@ final class SaveBackupManager {
         }
         var parent = url.deletingLastPathComponent()
         while parent.path != "/" && !fileManager.fileExists(atPath: parent.path) { parent.deleteLastPathComponent() }
-        try rejectSymlink(parent)
+        try rejectSymlinkChain(parent)
+        if fileManager.fileExists(atPath: url.path) { try rejectSymlinkChain(url) }
     }
 
     private func validateTree(_ url: URL) throws {
@@ -137,12 +171,30 @@ final class SaveBackupManager {
         }
     }
 
+    private func rejectSymlinkChain(_ url: URL) throws {
+        let standardized = url.standardizedFileURL
+        var current = URL(fileURLWithPath: "/", isDirectory: true)
+        for (index, component) in standardized.pathComponents.dropFirst().enumerated() {
+            current.appendPathComponent(component)
+            guard fileManager.fileExists(atPath: current.path) else { break }
+            let isSystemAlias = index == 0 && (component == "var" || component == "tmp")
+            if !isSystemAlias { try rejectSymlink(current) }
+        }
+    }
+
     private static func safeIdentifier(_ value: String) -> Bool {
-        !value.isEmpty && value.range(of: #"^[A-Za-z0-9._-]+$"#, options: .regularExpression) != nil
+        !value.isEmpty && value != "." && value != ".."
+            && value.range(of: #"^[A-Za-z0-9._-]+$"#, options: .regularExpression) != nil
     }
 
     private static func isDescendant(_ child: URL, of parent: URL) -> Bool {
         child.path.hasPrefix(parent.standardizedFileURL.path + "/")
+    }
+
+    private static func treesAreDisjoint(_ lhs: URL, _ rhs: URL) -> Bool {
+        let left = lhs.standardizedFileURL.path
+        let right = rhs.standardizedFileURL.path
+        return left != right && !left.hasPrefix(right + "/") && !right.hasPrefix(left + "/")
     }
 
     private static func timestamp() -> String {
@@ -151,6 +203,13 @@ final class SaveBackupManager {
         formatter.dateFormat = "yyyyMMdd-HHmmss"
         return formatter.string(from: Date())
     }
+}
+
+final class BackupCancellation: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = false
+    func cancel() { lock.withLock { value = true } }
+    var isCancelled: Bool { lock.withLock { value } }
 }
 
 private extension JSONEncoder {
