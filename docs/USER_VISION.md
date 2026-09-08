@@ -32,7 +32,7 @@ This management suite does not implement or improve ownership spoofing, license 
 ## Delivery order and verified status
 
 1. Installation health and diagnostics: complete. Verified by unit tests, a clean release app build, and native accessibility smoke inspection on 2026-09-07.
-2. Installed-game library: planned.
+2. Installed-game library: complete. Verified with parser and partial-scan tests, a clean release app build, and a live read-only library smoke check on 2026-09-07.
 3. Local save backup and restore: planned.
 4. Operational logging: planned.
 5. Configuration portability: planned.

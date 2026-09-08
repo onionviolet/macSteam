@@ -19,6 +19,10 @@ enum Paths {
         configDir.appendingPathComponent("signatures", isDirectory: true)
     }
 
+    static var saveBackupDir: URL {
+        configDir.appendingPathComponent("save-backups", isDirectory: true)
+    }
+
     static var steamRoot: URL {
         let home = FileManager.default.homeDirectoryForCurrentUser
         return home.appendingPathComponent("Library/Application Support/Steam", isDirectory: true)
