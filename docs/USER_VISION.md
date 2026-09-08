@@ -33,7 +33,7 @@ This management suite does not implement or improve ownership spoofing, license 
 
 1. Installation health and diagnostics: complete. Verified by unit tests, a clean release app build, and native accessibility smoke inspection on 2026-09-07.
 2. Installed-game library: complete. Verified with parser and partial-scan tests, a clean release app build, and a live read-only library smoke check on 2026-09-07.
-3. Local save backup and restore: planned.
+3. Local save backup and restore: complete for user-selected local folders. Verified with traversal, symlink, cancellation cleanup, versioning, and pre-restore safety-backup tests plus a native UI smoke check on 2026-09-07. Automatic save-location data and cloud providers remain out of scope.
 4. Operational logging: planned.
 5. Configuration portability: planned.
 

@@ -22,6 +22,8 @@ final class SidebarViewController: NSViewController {
         .group("Library"),
         .leaf(title: "Installed Games", symbol: "externaldrive",
               item: .library),
+        .leaf(title: "Save Backups", symbol: "clock.arrow.circlepath",
+              item: .saveBackups),
         .leaf(title: "Import Apps", symbol: "square.and.arrow.down",
               item: .importZip),
         .leaf(title: "Apps", symbol: ConfigViewController.Section.apps.symbol,
