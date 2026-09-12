@@ -22,6 +22,7 @@ DOBBY_LIBS := $(DOBBY_DIR)/libdobby.a \
               $(DOBBY_DIR)/external/logging/liblogging.a
 
 SRCS := src/core/loader.c \
+        src/core/ctx.c \
         src/core/macho.c \
         src/core/reconcile.c \
         src/core/session.c \
@@ -32,6 +33,7 @@ SRCS := src/core/loader.c \
         src/feats/license.c \
         src/feats/schema_owners.c \
         src/feats/depot.c \
+        src/feats/ticket.c \
         src/util/log.c \
         src/util/file.c \
         src/util/hex.c \
@@ -49,6 +51,7 @@ SRCS := src/core/loader.c \
         src/hooks/hook_manifest.c \
         src/hooks/hook_relaunch.c \
         src/hooks/hook_stats.c \
+        src/hooks/hook_ticket.c \
         src/hooks/hook_whatsnew.c \
         vendor/cJSON.c
 
