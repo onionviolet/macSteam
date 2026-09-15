@@ -25,6 +25,7 @@ This management suite does not implement or improve ownership spoofing, license 
 - Health reports classify actionable states and export only redacted data.
 - Installed-library discovery is read-only and tolerates partial or malformed Steam data.
 - Every restore creates a safety backup and rejects unsafe paths and links.
+- Per-game backup profiles remember only folders the user explicitly selected, reject broad, credential, cloud, and symbolic-link paths, and support one-click versioned backups.
 - Operational logs are bounded, searchable, and redacted.
 - Configuration import validates and previews changes before atomic replacement.
 - Tests cover parsers, classification, redaction, path safety, backup recovery, retention, and configuration validation.
@@ -33,8 +34,9 @@ This management suite does not implement or improve ownership spoofing, license 
 
 1. Installation health and diagnostics: complete. Verified by unit tests, a clean release app build, and native accessibility smoke inspection on 2026-09-07.
 2. Installed-game library: complete. Verified with parser and partial-scan tests, a clean release app build, and a live read-only library smoke check on 2026-09-07.
-3. Local save backup and restore: complete for user-selected local folders. Verified with traversal, symlink, cancellation cleanup, versioning, and pre-restore safety-backup tests plus a native UI smoke check on 2026-09-07. Automatic save-location data and cloud providers remain out of scope.
+3. Local save backup and restore: complete for user-selected local folders. Per-game profiles are stored atomically with owner-only permissions and are revalidated before every backup. Verified with traversal, symlink, stale/tampered profile, broad-path, cancellation cleanup, versioning, and pre-restore safety-backup tests. Automatic save-location discovery and cloud providers remain out of scope.
 4. Operational logging: complete. Install, uninstall, repair, import, update, scan, backup, restore, and settings operations emit redacted structured entries with bounded retention and a searchable clear/copy/export viewer.
 5. Configuration portability: complete for safe app preferences. Schema version 1 excludes game access data, rejects unknown fields and versions, previews changes, backs up the previous config, writes atomically, and exposes recovery backups.
+6. Private release isolation: complete in packaging. Private builds use a distinct bundle identifier and visible name, embed source/build metadata, fail closed on update checks, omit the upstream Sparkle feed, and install through a staged, verified, recoverable script.
 
 Only items explicitly marked complete after tests and a clean config-app build are implemented product behavior.
