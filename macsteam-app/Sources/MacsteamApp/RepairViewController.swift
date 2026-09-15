@@ -28,6 +28,7 @@ final class RepairViewController: NSViewController {
         headlineLabel.lineBreakMode = .byWordWrapping
         headlineLabel.maximumNumberOfLines = 0
         headlineLabel.translatesAutoresizingMaskIntoConstraints = false
+        headlineLabel.setAccessibilityLabel("Repair status")
 
         detailLabel = NSTextField(labelWithString: "")
         detailLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -36,6 +37,7 @@ final class RepairViewController: NSViewController {
         detailLabel.alignment = .center
         detailLabel.lineBreakMode = .byWordWrapping
         detailLabel.maximumNumberOfLines = 0
+        detailLabel.setAccessibilityLabel("Repair details")
 
         buildLabel = NSTextField(labelWithString: "")
         buildLabel.font = Typography.sectionHeader
@@ -43,9 +45,11 @@ final class RepairViewController: NSViewController {
         buildLabel.alignment = .center
         buildLabel.lineBreakMode = .byTruncatingTail
         buildLabel.translatesAutoresizingMaskIntoConstraints = false
+        buildLabel.setAccessibilityLabel("Detected Steam build")
 
         repairButton = makeButton(title: "Repair", target: self, action: #selector(doRepair))
         repairButton.keyEquivalent = "\r"
+        repairButton.setAccessibilityHelp("Restores Steam, then prepares it for a fresh macSteam installation.")
         openButton = makeButton(title: "Open Steam", target: self, action: #selector(openSteam))
 
         spinner = NSProgressIndicator()
@@ -53,6 +57,7 @@ final class RepairViewController: NSViewController {
         spinner.style = .spinning
         spinner.controlSize = .small
         spinner.isDisplayedWhenStopped = false
+        spinner.setAccessibilityLabel("Repair in progress")
 
         let footerDivider = NSBox()
         footerDivider.boxType = .separator
@@ -117,17 +122,16 @@ final class RepairViewController: NSViewController {
         if steamPresent {
             glyph.image = NSImage(systemSymbolName: "wrench.and.screwdriver", accessibilityDescription: nil)
             glyph.contentTintColor = .secondaryLabelColor
-            headlineLabel.stringValue = "Repair Steam"
-            detailLabel.stringValue = ""
+            updateAccessibleStatus(headlineLabel, text: "Repair Steam")
+            updateAccessibleStatus(detailLabel, text: "", announce: false)
             detailLabel.isHidden = true
             buildLabel.stringValue = currentBuildLine()
             buildLabel.isHidden = false
         } else {
             glyph.image = NSImage(systemSymbolName: StatusTone.bad.symbol, accessibilityDescription: nil)
             glyph.contentTintColor = StatusTone.bad.color
-            headlineLabel.stringValue = "Steam not found"
-            detailLabel.stringValue = "Steam isn't in your Applications folder. Install it from Valve, "
-                + "then come back to repair it."
+            updateAccessibleStatus(headlineLabel, text: "Steam not found")
+            updateAccessibleStatus(detailLabel, text: "Steam isn't in your Applications folder. Install it from Valve, then come back to repair it.", announce: false)
             buildLabel.stringValue = ""
             buildLabel.isHidden = true
         }
@@ -202,8 +206,8 @@ final class RepairViewController: NSViewController {
     private func setRepairing(_ step: String) {
         glyph.image = NSImage(systemSymbolName: "wrench.and.screwdriver", accessibilityDescription: nil)
         glyph.contentTintColor = .secondaryLabelColor
-        headlineLabel.stringValue = step
-        detailLabel.stringValue = ""
+        updateAccessibleStatus(headlineLabel, text: step)
+        updateAccessibleStatus(detailLabel, text: "", announce: false)
         detailLabel.isHidden = true
         buildLabel.stringValue = ""
         buildLabel.isHidden = true
@@ -212,9 +216,8 @@ final class RepairViewController: NSViewController {
     private func setSucceeded() {
         glyph.image = NSImage(systemSymbolName: StatusTone.ok.symbol, accessibilityDescription: nil)
         glyph.contentTintColor = StatusTone.ok.color
-        headlineLabel.stringValue = "Steam repaired"
-        detailLabel.stringValue = "Steam has been restored to an unmodified client. "
-            + "Run Install to patch Steam with macSteam."
+        updateAccessibleStatus(headlineLabel, text: "Steam repaired")
+        updateAccessibleStatus(detailLabel, text: "Steam has been restored to an unmodified client. Run Install to patch Steam with macSteam.", announce: false)
         detailLabel.isHidden = false
         buildLabel.stringValue = ""
         buildLabel.isHidden = true

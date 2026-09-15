@@ -4,6 +4,7 @@ final class LibraryViewController: NSViewController, NSSearchFieldDelegate {
     private let search = NSSearchField()
     private let summary = NSTextField(labelWithString: "")
     private let content = NSTextView()
+    private var refreshButton: NSButton!
     private var result = LibraryScanResult(games: [], warnings: [])
     private var isScanning = false
 
@@ -14,6 +15,7 @@ final class LibraryViewController: NSViewController, NSSearchFieldDelegate {
         search.setAccessibilityLabel("Filter installed games")
         summary.font = Typography.body
         summary.textColor = .secondaryLabelColor
+        summary.setAccessibilityLabel("Library scan status")
         content.isEditable = false
         content.isSelectable = true
         content.font = .monospacedSystemFont(ofSize: NSFont.smallSystemFontSize, weight: .regular)
@@ -23,10 +25,14 @@ final class LibraryViewController: NSViewController, NSSearchFieldDelegate {
         scroll.documentView = content
         scroll.hasVerticalScroller = true
         scroll.borderType = .bezelBorder
-        let refresh = makeButton(title: "Scan Again", target: self, action: #selector(scanLibrary))
-        refresh.keyEquivalent = "r"
-        refresh.keyEquivalentModifierMask = [.command]
-        let stack = NSStackView(views: [search, summary, scroll, refresh])
+        refreshButton = makeButton(title: "Scan Again", target: self, action: #selector(scanLibrary))
+        refreshButton.keyEquivalent = "r"
+        refreshButton.keyEquivalentModifierMask = [.command]
+        refreshButton.setAccessibilityHelp("Scans every configured Steam library again.")
+        search.nextKeyView = content
+        content.nextKeyView = refreshButton
+        refreshButton.nextKeyView = search
+        let stack = NSStackView(views: [search, summary, scroll, refreshButton])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 10
@@ -46,39 +52,47 @@ final class LibraryViewController: NSViewController, NSSearchFieldDelegate {
     }
 
     override func viewDidAppear() { super.viewDidAppear(); scanLibrary() }
-    func controlTextDidChange(_ obj: Notification) { render() }
+    func controlTextDidChange(_ obj: Notification) { render(announce: false) }
 
     @objc private func scanLibrary() {
         guard !isScanning else { return }
         isScanning = true
-        summary.stringValue = "Scanning configured Steam libraries…"
+        refreshButton?.isEnabled = false
+        updateAccessibleStatus(summary, text: "Scanning configured Steam libraries…")
         OperationalLog.shared.record(.info, operation: "scan", message: "Installed-game scan started")
         DispatchQueue.global(qos: .userInitiated).async {
             let scanned = SteamLibraryScanner.scan()
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 self.isScanning = false
+                self.refreshButton.isEnabled = true
                 self.result = scanned
                 OperationalLog.shared.record(scanned.warnings.isEmpty ? .info : .warning, operation: "scan",
                                              message: "Found \(scanned.games.count) installed game(s) with \(scanned.warnings.count) warning(s)")
-                self.render()
+                self.render(announce: true)
             }
         }
     }
 
-    private func render() {
+    private func render(announce: Bool) {
         let query = search.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         let games = query.isEmpty ? result.games : result.games.filter {
             $0.title.localizedCaseInsensitiveContains(query) || String($0.appID).contains(query)
         }
-        summary.stringValue = result.games.isEmpty
-            ? "No installed Steam games were found. \(result.warnings.first ?? "Open Steam once, then scan again.")"
-            : "\(result.games.count) installed game(s). \(result.warnings.count) scan warning(s)."
+        if result.games.isEmpty {
+            updateAccessibleStatus(summary, text: "No installed Steam games were found. \(result.warnings.first ?? "Open Steam once, then choose Scan Again.")", announce: announce)
+        } else if games.isEmpty {
+            updateAccessibleStatus(summary, text: "No installed games match “\(query)”. Clear the filter to show all \(result.games.count) games.", announce: announce)
+        } else {
+            let warnings = result.warnings.isEmpty ? "" : " \(result.warnings.count) scan warning(s)."
+            updateAccessibleStatus(summary, text: "Showing \(games.count) of \(result.games.count) installed game(s).\(warnings)", announce: announce)
+        }
         let formatter = ByteCountFormatter()
-        content.string = games.map { game in
+        let listing = games.map { game in
             let size = game.sizeOnDisk.map { formatter.string(fromByteCount: $0) } ?? "Size unavailable"
             let backup = game.lastBackup.map { DateFormatter.localizedString(from: $0, dateStyle: .medium, timeStyle: .short) } ?? "Never"
             return "\(game.title)\nApp ID \(game.appID) | \(game.libraryLabel) | \(size)\nsteamapps/common/\(game.installDirectory.lastPathComponent)\n\(game.compatibility.rawValue) | \(game.configState) | Last backup: \(backup)"
         }.joined(separator: "\n\n")
+        content.string = listing.isEmpty ? "No games to show. Use the filter above or choose Scan Again." : listing
     }
 }

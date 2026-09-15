@@ -3,6 +3,7 @@ import AppKit
 final class LogsViewController: NSViewController, NSSearchFieldDelegate {
     private let search = NSSearchField()
     private let content = NSTextView()
+    private let status = NSTextField(labelWithString: "")
 
     override func loadView() {
         let root = NSView(frame: NSRect(x: 0, y: 0, width: 620, height: 460))
@@ -13,13 +14,18 @@ final class LogsViewController: NSViewController, NSSearchFieldDelegate {
         content.isSelectable = true
         content.font = .monospacedSystemFont(ofSize: NSFont.smallSystemFontSize, weight: .regular)
         content.setAccessibilityLabel("Operational log")
+        status.font = Typography.caption
+        status.textColor = Colors.secondaryText
+        status.setAccessibilityLabel("Log status")
         let scroll = NSScrollView(); scroll.documentView = content; scroll.hasVerticalScroller = true; scroll.borderType = .bezelBorder
         let refresh = makeButton(title: "Refresh", target: self, action: #selector(refreshLog))
         let copy = makeButton(title: "Copy", target: self, action: #selector(copyLog))
         let export = makeButton(title: "Export…", target: self, action: #selector(exportLog))
         let clear = makeButton(title: "Clear…", target: self, action: #selector(clearLog))
-        let buttons = NSStackView(views: [refresh, copy, export, clear]); buttons.orientation = .horizontal; buttons.spacing = 8
-        let stack = NSStackView(views: [search, scroll, buttons]); stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 10; stack.translatesAutoresizingMaskIntoConstraints = false
+        clear.setAccessibilityHelp("Permanently removes the local operational log after confirmation.")
+        let buttons = makeAdaptiveButtonStack([refresh, copy, export, clear])
+        search.nextKeyView = content; content.nextKeyView = refresh; refresh.nextKeyView = copy; copy.nextKeyView = export; export.nextKeyView = clear; clear.nextKeyView = search
+        let stack = NSStackView(views: [search, status, scroll, buttons]); stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 10; stack.translatesAutoresizingMaskIntoConstraints = false
         scroll.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(stack)
         NSLayoutConstraint.activate([
@@ -38,7 +44,11 @@ final class LogsViewController: NSViewController, NSSearchFieldDelegate {
     func controlTextDidChange(_ obj: Notification) { refreshLog() }
     @objc private func refreshLog() {
         let text = OperationalLog.shared.exportText(filter: search.stringValue)
-        content.string = text.isEmpty ? "No matching operations have been recorded." : text
+        let hasFilter = !search.stringValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        content.string = text.isEmpty
+            ? (hasFilter ? "No operations match this search. Clear the search to show all entries." : "No operations have been recorded yet. Use another section, then return here and choose Refresh.")
+            : text
+        updateAccessibleStatus(status, text: text.isEmpty ? "No matching log entries." : "Log entries loaded.")
     }
     @objc private func copyLog() {
         NSPasteboard.general.clearContents(); NSPasteboard.general.setString(OperationalLog.shared.exportText(filter: search.stringValue), forType: .string)

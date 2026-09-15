@@ -9,8 +9,11 @@ final class DiagnosticsViewController: NSViewController {
         let root = NSView(frame: NSRect(x: 0, y: 0, width: 620, height: 460))
         stateLabel.font = Typography.largeTitle
         stateLabel.setAccessibilityLabel("Installation health")
+        stateLabel.lineBreakMode = .byWordWrapping
+        stateLabel.maximumNumberOfLines = 0
         summaryLabel.font = Typography.body
         summaryLabel.textColor = .secondaryLabelColor
+        summaryLabel.setAccessibilityLabel("Health summary")
 
         details.isEditable = false
         details.isSelectable = true
@@ -26,10 +29,10 @@ final class DiagnosticsViewController: NSViewController {
         refreshButton.keyEquivalent = "r"
         refreshButton.keyEquivalentModifierMask = [.command]
         let copyButton = makeButton(title: "Copy Report", target: self, action: #selector(copyReport))
+        copyButton.setAccessibilityHelp("Copies the current redacted diagnostics report.")
         let exportButton = makeButton(title: "Export Report…", target: self, action: #selector(exportReport))
-        let buttons = NSStackView(views: [refreshButton, copyButton, exportButton])
-        buttons.orientation = .horizontal
-        buttons.spacing = 8
+        exportButton.setAccessibilityHelp("Saves the current redacted diagnostics report as a text file.")
+        let buttons = makeAdaptiveButtonStack([refreshButton, copyButton, exportButton])
 
         let stack = NSStackView(views: [stateLabel, summaryLabel, scroll, buttons])
         stack.orientation = .vertical
@@ -58,8 +61,8 @@ final class DiagnosticsViewController: NSViewController {
 
     @objc private func refresh() {
         let health = HealthDiagnostics.inspect()
-        stateLabel.stringValue = health.state.rawValue
-        summaryLabel.stringValue = health.summary
+        updateAccessibleStatus(stateLabel, text: health.state.rawValue)
+        updateAccessibleStatus(summaryLabel, text: health.summary, announce: false)
         details.string = health.checks.map { "[\($0.status.rawValue.uppercased())] \($0.name)\n\($0.detail)" }
             .joined(separator: "\n\n")
     }

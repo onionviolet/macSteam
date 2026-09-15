@@ -19,7 +19,7 @@ final class InstallViewController: NSViewController {
     override func loadView() {
         let root = NSView(frame: NSRect(x: 0, y: 0, width: 620, height: 460))
 
-            statusGlyph = NSImageView()
+        statusGlyph = NSImageView()
         statusGlyph.symbolConfiguration = .init(pointSize: 40, weight: .regular)
         statusGlyph.setAccessibilityElement(false)
         statusGlyph.translatesAutoresizingMaskIntoConstraints = false
@@ -28,7 +28,9 @@ final class InstallViewController: NSViewController {
         headlineLabel.font = Typography.largeTitle
         headlineLabel.textColor = .labelColor
         headlineLabel.alignment = .center
-        headlineLabel.lineBreakMode = .byTruncatingTail
+        headlineLabel.lineBreakMode = .byWordWrapping
+        headlineLabel.maximumNumberOfLines = 0
+        headlineLabel.setAccessibilityLabel("Installation status")
         headlineLabel.translatesAutoresizingMaskIntoConstraints = false
 
         detailLabel = NSTextField(labelWithString: "")
@@ -38,11 +40,15 @@ final class InstallViewController: NSViewController {
         detailLabel.alignment = .center
         detailLabel.lineBreakMode = .byWordWrapping
         detailLabel.maximumNumberOfLines = 0
+        detailLabel.setAccessibilityLabel("Installation details")
 
         installButton = makeButton(title: "Install", target: self, action: #selector(doInstall))
         installButton.keyEquivalent = "\r"
+        installButton.setAccessibilityHelp("Installs the bundled macSteam patch into Steam.")
         uninstallButton = makeButton(title: "Uninstall", target: self, action: #selector(doUninstall))
+        uninstallButton.setAccessibilityHelp("Restores a clean Valve-signed Steam installation after confirmation.")
         updateBlockButton = makeButton(title: "Allow Updates", target: self, action: #selector(toggleUpdateBlock))
+        updateBlockButton.setAccessibilityHelp("Changes whether Steam may update its client.")
         openButton = makeButton(title: "Open Steam", target: self, action: #selector(openSteam))
 
         spinner = NSProgressIndicator()
@@ -50,6 +56,7 @@ final class InstallViewController: NSViewController {
         spinner.style = .spinning
         spinner.controlSize = .small
         spinner.isDisplayedWhenStopped = false
+        spinner.setAccessibilityLabel("Installation in progress")
 
         let footerDivider = NSBox()
         footerDivider.boxType = .separator
@@ -120,8 +127,8 @@ final class InstallViewController: NSViewController {
         let summary = summarize(status: status, blockOn: blockOn)
         statusGlyph.image = NSImage(systemSymbolName: summary.tone.symbol, accessibilityDescription: nil)
         statusGlyph.contentTintColor = summary.tone.color
-        headlineLabel.stringValue = summary.headline
-        detailLabel.stringValue = summary.detail
+        updateAccessibleStatus(headlineLabel, text: summary.headline)
+        updateAccessibleStatus(detailLabel, text: summary.detail, announce: false)
 
         switch status {
         case .installed:
@@ -277,8 +284,8 @@ final class InstallViewController: NSViewController {
         statusGlyph.image = NSImage(systemSymbolName: "arrow.triangle.2.circlepath",
                                     accessibilityDescription: nil)
         statusGlyph.contentTintColor = .secondaryLabelColor
-        headlineLabel.stringValue = "\(verb)…"
-        detailLabel.stringValue = ""
+        updateAccessibleStatus(headlineLabel, text: "\(verb)…")
+        updateAccessibleStatus(detailLabel, text: "", announce: false)
 
         MacsteamApp.runBusy(spinner: spinner, operation: verb.lowercased(), setBusy: { [self] busy in
             installButton.isEnabled = !busy && bundledDylib != nil

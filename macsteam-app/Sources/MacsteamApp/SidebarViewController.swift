@@ -58,6 +58,8 @@ final class SidebarViewController: NSViewController {
         outline.floatsGroupRows = false
         outline.style = .sourceList
         outline.backgroundColor = .clear
+        outline.setAccessibilityLabel("Sections")
+        outline.setAccessibilityHelp("Choose a section to show in the main pane.")
 
         let col = NSTableColumn(identifier: .init("main"))
         col.resizingMask = .autoresizingMask
@@ -103,7 +105,12 @@ final class SidebarViewController: NSViewController {
     }
 
     func selectDefault() {
-        select(.importZip)
+        select(.library)
+    }
+
+    func focusSelection() {
+        guard let window = view.window else { return }
+        window.makeFirstResponder(outline)
     }
 
     func select(_ item: MainViewController.Item) {
@@ -152,6 +159,7 @@ extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate 
             label.font = .preferredFont(forTextStyle: .body)
             label.textColor = .secondaryLabelColor
             label.translatesAutoresizingMaskIntoConstraints = false
+            label.setAccessibilityLabel("\(title) section")
             cell.addSubview(label)
             NSLayoutConstraint.activate([
                 label.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 6),
@@ -161,8 +169,10 @@ extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate 
 
         case .leaf(let title, let symbol, _):
             let cell = NSTableCellView()
+            cell.setAccessibilityLabel(title)
             let img = NSImageView()
             img.image = NSImage(systemSymbolName: symbol, accessibilityDescription: title)
+            img.setAccessibilityElement(false)
             img.contentTintColor = (view.window?.isKeyWindow ?? true)
                 ? .controlAccentColor : .secondaryLabelColor
             img.symbolConfiguration = .init(textStyle: .body)

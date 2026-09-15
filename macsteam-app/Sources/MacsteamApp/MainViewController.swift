@@ -21,6 +21,7 @@ final class MainViewController: NSSplitViewController {
         field.font = .systemFont(ofSize: NSFont.systemFontSize(for: .regular), weight: .semibold)
         field.textColor = .labelColor
         field.alignment = .natural
+        field.setAccessibilityLabel("Current section")
         return field
     }()
 
@@ -93,6 +94,7 @@ final class MainViewController: NSSplitViewController {
         super.viewDidAppear()
         view.window?.delegate = self
         sidebarVC.selectDefault()
+        sidebarVC.focusSelection()
     }
 
     // MARK: - Detail routing
@@ -132,6 +134,10 @@ final class MainViewController: NSSplitViewController {
             title = section.title
         }
         titleLabel.stringValue = title
+        titleLabel.setAccessibilityLabel("Current section: \(title)")
+        if titleLabel.window != nil {
+            NSAccessibility.post(element: titleLabel, notification: .valueChanged)
+        }
         swapDetail(to: child.view)
     }
 
@@ -142,7 +148,10 @@ final class MainViewController: NSSplitViewController {
         newView.translatesAutoresizingMaskIntoConstraints = false
         host.addSubview(newView)
         NSLayoutConstraint.activate([
-            newView.topAnchor.constraint(equalTo: host.topAnchor),
+            // Unified toolbars extend into the detail host. Reserve the title-row
+            // height so each pane's first control remains visible and clickable.
+            newView.topAnchor.constraint(equalTo: host.topAnchor,
+                                         constant: Metrics.unifiedToolbarClearance),
             newView.leadingAnchor.constraint(equalTo: host.leadingAnchor),
             newView.trailingAnchor.constraint(equalTo: host.trailingAnchor),
             newView.bottomAnchor.constraint(equalTo: host.bottomAnchor),

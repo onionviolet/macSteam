@@ -19,7 +19,13 @@ final class PortabilityViewController: NSViewController {
         export.keyEquivalent = "e"; export.keyEquivalentModifierMask = [.command, .shift]
         let importButton = makeButton(title: "Import Settings…", target: self, action: #selector(importSettings))
         let recovery = makeButton(title: "Show Recovery Backups", target: self, action: #selector(showBackups))
-        let buttons = NSStackView(views: [export, importButton, recovery]); buttons.orientation = .horizontal; buttons.spacing = 8
+        export.setAccessibilityHelp("Saves safe macSteam preferences as a versioned JSON file.")
+        importButton.setAccessibilityHelp("Previews and applies a validated macSteam settings file.")
+        recovery.setAccessibilityHelp("Opens the folder containing automatic configuration backups.")
+        let buttons = makeAdaptiveButtonStack([export, importButton, recovery])
+        buttons.orientation = .vertical
+        buttons.alignment = .leading
+        export.nextKeyView = importButton; importButton.nextKeyView = recovery; recovery.nextKeyView = export
         status.textColor = .secondaryLabelColor; status.setAccessibilityLabel("Portability status")
         let stack = NSStackView(views: [explanation, buttons, status]); stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 14; stack.translatesAutoresizingMaskIntoConstraints = false
         explanation.translatesAutoresizingMaskIntoConstraints = false; status.translatesAutoresizingMaskIntoConstraints = false
@@ -40,8 +46,8 @@ final class PortabilityViewController: NSViewController {
             let data = try ConfigurationPortability.export(config: store.config)
             try data.write(to: url, options: .atomic)
             OperationalLog.shared.record(.info, operation: "settings export", message: "Portable settings exported")
-            status.stringValue = "Settings exported using schema version 1."
-        } catch { OperationalLog.shared.record(.error, operation: "settings export", message: error.localizedDescription); status.stringValue = error.localizedDescription }
+            updateAccessibleStatus(status, text: "Settings exported using schema version 1.")
+        } catch { OperationalLog.shared.record(.error, operation: "settings export", message: error.localizedDescription); updateAccessibleStatus(status, text: "Export failed: \(error.localizedDescription)") }
     }
 
     @objc private func importSettings() {
@@ -50,18 +56,18 @@ final class PortabilityViewController: NSViewController {
         do {
             let document = try ConfigurationPortability.decode(Data(contentsOf: url))
             let changes = ConfigurationPortability.preview(document, current: store.config)
-            guard !changes.isEmpty else { status.stringValue = "The imported settings already match the current settings."; return }
+            guard !changes.isEmpty else { updateAccessibleStatus(status, text: "The imported settings already match the current settings."); return }
             let alert = NSAlert(); alert.messageText = "Apply imported settings?"; alert.informativeText = changes.map { "\($0.name): \($0.oldValue) to \($0.newValue)" }.joined(separator: "\n") + "\n\nThe current config will be backed up first."; alert.addButton(withTitle: "Back Up and Apply"); alert.addButton(withTitle: "Cancel")
             guard alert.runModal() == .alertFirstButtonReturn else { return }
             try store.apply(document)
             onApplied()
             OperationalLog.shared.record(.info, operation: "settings import", message: "Validated portable settings applied")
-            status.stringValue = "Settings imported. The previous config is available in Recovery Backups."
-        } catch { OperationalLog.shared.record(.error, operation: "settings import", message: error.localizedDescription); status.stringValue = error.localizedDescription }
+            updateAccessibleStatus(status, text: "Settings imported. The previous config is available in Recovery Backups.")
+        } catch { OperationalLog.shared.record(.error, operation: "settings import", message: error.localizedDescription); updateAccessibleStatus(status, text: "Import failed: \(error.localizedDescription)") }
     }
 
     @objc private func showBackups() {
         do { try Paths.ensureDir(Paths.configBackupDir); NSWorkspace.shared.activateFileViewerSelecting([Paths.configBackupDir]) }
-        catch { status.stringValue = error.localizedDescription }
+        catch { updateAccessibleStatus(status, text: "Couldn’t open recovery backups: \(error.localizedDescription)") }
     }
 }
