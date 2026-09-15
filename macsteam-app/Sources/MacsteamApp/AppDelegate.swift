@@ -2,7 +2,14 @@ import AppKit
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private let appName = "macSteam Config"
+    private var appName: String {
+        (Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)
+            ?? (Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String)
+            ?? "macSteam"
+    }
+    private var updatesEnabled: Bool {
+        Bundle.main.object(forInfoDictionaryKey: "MacSteamUpdatesEnabled") as? Bool == true
+    }
     let store = ConfigStore()
     private let updaterManager = UpdaterManager.shared
     var window: NSWindow!
@@ -75,9 +82,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
                         keyEquivalent: "")
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Check for Updates…",
-                        action: #selector(checkForUpdatesMenu),
-                        keyEquivalent: "")
+        if updatesEnabled {
+            appMenu.addItem(withTitle: "Check for Updates…",
+                            action: #selector(checkForUpdatesMenu),
+                            keyEquivalent: "")
+        } else {
+            let updatesItem = appMenu.addItem(withTitle: "Updates Disabled for Private Build",
+                                              action: nil, keyEquivalent: "")
+            updatesItem.isEnabled = false
+        }
         appMenu.addItem(.separator())
         let servicesMenu = NSMenu()
         NSApp.servicesMenu = servicesMenu
@@ -102,7 +115,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                          action: #selector(MainViewController.importZip), keyEquivalent: "i").target = nil
         fileMenu.addItem(.separator())
         let removeItem = fileMenu.addItem(withTitle: "Remove",
-                         action: Selector(("removeApps:")), keyEquivalent: String(UnicodeScalar(NSDeleteCharacter)!))
+                         action: #selector(DeletingOutlineView.removeApps(_:)),
+                         keyEquivalent: String(UnicodeScalar(NSDeleteCharacter)!))
         removeItem.keyEquivalentModifierMask = [.command]
         removeItem.target = nil
         fileMenuItem.submenu = fileMenu
