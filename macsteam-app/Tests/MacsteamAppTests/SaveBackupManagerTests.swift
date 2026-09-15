@@ -8,7 +8,8 @@ final class SaveBackupManagerTests: XCTestCase {
     override func setUpWithError() throws {
         sandbox = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: sandbox, withIntermediateDirectories: true)
-        manager = SaveBackupManager(root: sandbox.appendingPathComponent("backups"))
+        manager = SaveBackupManager(root: sandbox.appendingPathComponent("backups"),
+                                    homeDirectory: sandbox)
     }
 
     override func tearDownWithError() throws { try? FileManager.default.removeItem(at: sandbox) }
@@ -100,6 +101,95 @@ final class SaveBackupManagerTests: XCTestCase {
         let record = try manager.createBackup(gameID: "42", title: "Game", source: source)
         XCTAssertThrowsError(try manager.restore(record, to: manager.root.appendingPathComponent("destination")))
         XCTAssertThrowsError(try manager.restore(record, to: sandbox))
+    }
+
+    func testProfilePersistsReplacesAndCanBeRemovedWithoutDeletingBackups() throws {
+        let first = try makeSave("one")
+        let profile = try manager.saveProfile(gameID: "42", title: "Game", sourceDirectory: first)
+        XCTAssertEqual(try manager.listProfiles().map(\.gameID), ["42"])
+
+        let backup = try manager.createBackup(using: profile)
+        let second = sandbox.appendingPathComponent("second-save", isDirectory: true)
+        try FileManager.default.createDirectory(at: second, withIntermediateDirectories: true)
+        try "two".write(to: second.appendingPathComponent("data.txt"), atomically: true, encoding: .utf8)
+        let replacement = try manager.saveProfile(gameID: "42", title: "Renamed Game", sourceDirectory: second)
+
+        XCTAssertEqual(try manager.listProfiles().map(\.gameTitle), ["Renamed Game"])
+        XCTAssertEqual(try manager.createBackup(using: replacement).gameTitle, "Renamed Game")
+        XCTAssertTrue(try manager.removeProfile(gameID: "42"))
+        XCTAssertFalse(try manager.removeProfile(gameID: "42"))
+        XCTAssertTrue(try manager.listProfiles().isEmpty)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: backup.backupDirectory.path))
+    }
+
+    func testProfileBackupRejectsStaleOrChangedMapping() throws {
+        let first = try makeSave("one")
+        let stale = try manager.saveProfile(gameID: "42", title: "Game", sourceDirectory: first)
+        let second = sandbox.appendingPathComponent("second-save", isDirectory: true)
+        try FileManager.default.createDirectory(at: second, withIntermediateDirectories: true)
+        _ = try manager.saveProfile(gameID: "42", title: "Game", sourceDirectory: second)
+
+        XCTAssertThrowsError(try manager.createBackup(using: stale))
+        XCTAssertTrue(manager.list(gameID: "42").isEmpty)
+    }
+
+    func testProfileRequiresDirectoryAndRejectsSymlinkedTree() throws {
+        let file = sandbox.appendingPathComponent("single-save.dat")
+        try "save".write(to: file, atomically: true, encoding: .utf8)
+        XCTAssertThrowsError(try manager.saveProfile(gameID: "42", title: "Game", sourceDirectory: file))
+
+        let save = sandbox.appendingPathComponent("linked-save", isDirectory: true)
+        try FileManager.default.createDirectory(at: save, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: save.appendingPathComponent("outside"),
+                                                    withDestinationURL: sandbox)
+        XCTAssertThrowsError(try manager.saveProfile(gameID: "42", title: "Game", sourceDirectory: save))
+        XCTAssertTrue(try manager.listProfiles().isEmpty)
+    }
+
+    func testProfileIsRevalidatedBeforeEachBackup() throws {
+        let save = try makeSave("one")
+        let profile = try manager.saveProfile(gameID: "42", title: "Game", sourceDirectory: save)
+        try FileManager.default.removeItem(at: save)
+        let replacement = sandbox.appendingPathComponent("replacement", isDirectory: true)
+        try FileManager.default.createDirectory(at: replacement, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: save, withDestinationURL: replacement)
+
+        XCTAssertThrowsError(try manager.createBackup(using: profile))
+        XCTAssertTrue(manager.list(gameID: "42").isEmpty)
+    }
+
+    func testCorruptProfileStoreIsNotSilentlyOverwritten() throws {
+        try FileManager.default.createDirectory(at: manager.root, withIntermediateDirectories: true)
+        let store = manager.root.appendingPathComponent("profiles.json")
+        try Data("not json".utf8).write(to: store)
+        let save = try makeSave("one")
+
+        XCTAssertThrowsError(try manager.listProfiles())
+        XCTAssertThrowsError(try manager.saveProfile(gameID: "42", title: "Game", sourceDirectory: save))
+        XCTAssertEqual(try String(contentsOf: store, encoding: .utf8), "not json")
+    }
+
+    func testProfileStoreIsPrivateAndRejectsSymlinkReplacement() throws {
+        let save = try makeSave("one")
+        _ = try manager.saveProfile(gameID: "42", title: "Game", sourceDirectory: save)
+        let store = manager.root.appendingPathComponent("profiles.json")
+        let permissions = try FileManager.default.attributesOfItem(atPath: store.path)[.posixPermissions] as? NSNumber
+        XCTAssertEqual(permissions?.intValue, 0o600)
+
+        let outside = sandbox.appendingPathComponent("outside-profiles.json")
+        try FileManager.default.moveItem(at: store, to: outside)
+        try FileManager.default.createSymbolicLink(at: store, withDestinationURL: outside)
+        XCTAssertThrowsError(try manager.listProfiles())
+        XCTAssertThrowsError(try manager.saveProfile(gameID: "43", title: "Other", sourceDirectory: save))
+    }
+
+    func testProfileRejectsEntirePersonalFolderButAllowsGameSubfolder() throws {
+        let documents = sandbox.appendingPathComponent("Documents", isDirectory: true)
+        let gameSave = documents.appendingPathComponent("Example Game", isDirectory: true)
+        try FileManager.default.createDirectory(at: gameSave, withIntermediateDirectories: true)
+
+        XCTAssertThrowsError(try manager.saveProfile(gameID: "42", title: "Game", sourceDirectory: documents))
+        XCTAssertNoThrow(try manager.saveProfile(gameID: "42", title: "Game", sourceDirectory: gameSave))
     }
 
     private func makeSave(_ contents: String) throws -> URL {
