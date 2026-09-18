@@ -115,7 +115,7 @@ enum MacCrab {
     // MARK: - Stock repair (clean bundle + pinned build)
 
     static func repairToStock(progress: (@Sendable (String) -> Void)? = nil) throws {
-        if steamIsRunning() {
+        if isSteamRunning() {
             progress?("Quitting Steam so it can be repaired")
             killSteam()
         }
@@ -133,7 +133,7 @@ enum MacCrab {
     // MARK: - Uninstall (clean bundle, no pin)
 
     static func uninstallToStock(progress: (@Sendable (String) -> Void)? = nil) throws {
-        if steamIsRunning() {
+        if isSteamRunning() {
             progress?("Quitting Steam so it can be removed")
             killSteam()
         }
@@ -150,7 +150,7 @@ enum MacCrab {
 
     static func ensurePristineBundle(progress: (@Sendable (String) -> Void)? = nil) throws {
         if SteamBundleInstaller.isPristineValveBundle(Paths.steamApp) { return }
-        if steamIsRunning() {
+        if isSteamRunning() {
             progress?("Quitting Steam")
             killSteam()
         }
@@ -177,7 +177,11 @@ enum MacCrab {
         Thread.sleep(forTimeInterval: 0.5)
     }
 
-    private static func steamIsRunning() -> Bool {
+    static func isSteamRunning() -> Bool {
         Subprocess.run("/usr/bin/pgrep", ["-x", "steam_osx"]).code == 0
+    }
+
+    static func quitSteam() {
+        killSteam()
     }
 }

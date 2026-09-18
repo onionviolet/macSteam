@@ -11,6 +11,7 @@ The product should let that user see what is installed, understand installation 
 - Discover first and keep discovery read-only.
 - Make writes reversible and create a safety backup before overwriting data.
 - Show explicit healthy, needs repair, unsupported, and missing states.
+- Treat an unconfirmed Steam build mismatch as advisory, not proof that the client is unsupported.
 - Keep diagnostics and logs free of account data, credentials, and personal paths.
 - Follow native macOS interaction and accessibility conventions.
 - Remain useful as a library and support utility without the restricted core.
@@ -32,11 +33,12 @@ This management suite does not implement or improve ownership spoofing, license 
 
 ## Delivery order and verified status
 
-1. Installation health and diagnostics: complete. Verified by unit tests, a clean release app build, and native accessibility smoke inspection on 2026-09-07.
-2. Installed-game library: complete. Verified with parser and partial-scan tests, a clean release app build, and a live read-only library smoke check on 2026-09-07.
-3. Local save backup and restore: complete for user-selected local folders. Per-game profiles are stored atomically with owner-only permissions and are revalidated before every backup. Verified with traversal, symlink, stale/tampered profile, broad-path, cancellation cleanup, versioning, and pre-restore safety-backup tests. Automatic save-location discovery and cloud providers remain out of scope.
-4. Operational logging: complete. Install, uninstall, repair, import, update, scan, backup, restore, and settings operations emit redacted structured entries with bounded retention and a searchable clear/copy/export viewer.
-5. Configuration portability: complete for safe app preferences. Schema version 1 excludes game access data, rejects unknown fields and versions, previews changes, backs up the previous config, writes atomically, and exposes recovery backups.
-6. Private release isolation: complete in packaging. Private builds use a distinct bundle identifier and visible name, embed source/build metadata, fail closed on update checks, omit the upstream Sparkle feed, and install through a staged, verified, recoverable script.
+1. Private Ready Check: complete in the private package. It checks architecture, Steam presence, unpacked client files, running-process state, build compatibility, installation state, and update protection; it routes the user to Repair or Install without requiring a downgrade for an unconfirmed build mismatch.
+2. Installation health and diagnostics: complete. Build mismatches and unreadable build metadata are advisory; confirmed unsupported architecture remains blocking. Verified by unit tests, a clean release app build, and native accessibility smoke inspection on 2026-09-07.
+3. Installed-game library: complete. Verified with parser and partial-scan tests, a clean release app build, and a live read-only library smoke check on 2026-09-07.
+4. Local save backup and restore: complete for user-selected local folders. Per-game profiles are stored atomically with owner-only permissions and are revalidated before every backup. Verified with traversal, symlink, stale/tampered profile, broad-path, cancellation cleanup, versioning, and pre-restore safety-backup tests. Automatic save-location discovery and cloud providers remain out of scope.
+5. Operational logging: complete. Install, uninstall, repair, import, update, scan, backup, restore, and settings operations emit redacted structured entries with bounded retention and a searchable clear/copy/export viewer.
+6. Configuration portability: complete for safe app preferences. Schema version 1 excludes game access data, rejects unknown fields and versions, previews changes, backs up the previous config, writes atomically, and exposes recovery backups.
+7. Private release isolation: complete in packaging. Private builds use a distinct bundle identifier and visible name, embed source/build metadata, fail closed on update checks, omit the upstream Sparkle feed, and install through a staged, verified, recoverable script.
 
 Only items explicitly marked complete after tests and a clean config-app build are implemented product behavior.

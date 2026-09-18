@@ -97,14 +97,14 @@ enum HealthDiagnostics {
         }
 
         if let detected = environment.detectedBuild, detected != environment.supportedBuild {
-            checks.append(HealthCheck(name: "Steam build", status: .failure,
-                                      detail: "Detected \(detected); supported \(environment.supportedBuild)"))
-            return InstallationHealth(state: .unsupported, summary: "This Steam build is not supported.", checks: checks)
+            checks.append(HealthCheck(name: "Steam build", status: .warning,
+                                      detail: "Detected \(detected); bundled reference \(environment.supportedBuild). Compatibility is not confirmed, but a downgrade is not required."))
+        } else {
+            checks.append(HealthCheck(name: "Steam build", status: environment.detectedBuild == nil ? .warning : .pass,
+                                      detail: environment.detectedBuild ?? "Could not determine build; compatibility is not confirmed"))
         }
-        checks.append(HealthCheck(name: "Steam build", status: environment.detectedBuild == nil ? .failure : .pass,
-                                  detail: environment.detectedBuild ?? "Could not determine build"))
 
-        if environment.detectedBuild == nil || environment.bundledVersion == nil || environment.installedVersion == nil {
+        if environment.bundledVersion == nil || environment.installedVersion == nil {
             checks.append(HealthCheck(name: "Component version", status: .failure,
                                       detail: "Installed or bundled version metadata is missing"))
             return InstallationHealth(state: .needsRepair, summary: "Installation metadata is incomplete.", checks: checks)
@@ -119,7 +119,10 @@ enum HealthDiagnostics {
         if checks.contains(where: { $0.status == .failure }) {
             return InstallationHealth(state: .needsRepair, summary: "Steam needs repair before it can be managed safely.", checks: checks)
         }
-        return InstallationHealth(state: .healthy, summary: "Steam is ready for management.", checks: checks)
+        let hasWarning = checks.contains { $0.status == .warning }
+        return InstallationHealth(state: .healthy,
+            summary: hasWarning ? "Steam is ready, with advisory checks to review." : "Steam is ready for management.",
+            checks: checks)
     }
 
     static func report(_ health: InstallationHealth, home: URL = FileManager.default.homeDirectoryForCurrentUser) -> String {

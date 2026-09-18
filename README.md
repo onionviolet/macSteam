@@ -23,7 +23,7 @@ Pretty boring.
 
 The companion app can handle all the basics. It can deploy the macSteam dylib, it can import games, you can use it to remove games from your unlock list, you can toggle the features that support being toggled (with more to come). You can also edit the config by hand by going to ```~/Library/Application Support/macSteam``` and editing the config file.
 
-The native app is also growing into a legitimate Steam management and support utility. Installation diagnostics are available now, with read-only library discovery, safe local save backups, operational logs, and configuration portability tracked in the [current product contract](docs/USER_VISION.md). The [SFF feature audit](docs/SFF_FEATURE_AUDIT.md) records inspiration, rejected scope, and licensing decisions.
+The native app is also growing into a legitimate Steam management and support utility. The private package includes an actionable Ready Check alongside installation diagnostics, read-only library discovery, safe local save backups, operational logs, and configuration portability tracked in the [current product contract](docs/USER_VISION.md). The [SFF feature audit](docs/SFF_FEATURE_AUDIT.md) records inspiration, rejected scope, and licensing decisions.
 
 ## Usage
 

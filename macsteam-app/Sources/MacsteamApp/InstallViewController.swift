@@ -187,11 +187,6 @@ final class InstallViewController: NSViewController {
         }
     }
 
-    private func buildIsOlder(_ lhs: String, than rhs: String) -> Bool {
-        guard let l = Int(lhs), let r = Int(rhs) else { return false }
-        return l < r
-    }
-
     // MARK: - Actions
 
     @objc private func doInstall() {
@@ -206,30 +201,18 @@ final class InstallViewController: NSViewController {
     }
 
     private func promptVersionFix(currentBuild: String, dylib: URL) {
-        let tooOld = buildIsOlder(currentBuild, than: MacCrab.supportedVersion)
         let alert = NSAlert()
         alert.alertStyle = .warning
-        if tooOld {
-            alert.messageText = "Steam version is older than the supported version"
-            alert.informativeText = "Your Steam client is on a build of Steam that is older "
-                + "than the build that macSteam supports. This installer can upgrade you to the "
-                + "latest supported version of Steam, or you can install on your current "
-                + "build\u{2026}at your own risk."
-            alert.addButton(withTitle: "Update and Install")
-        } else {
-            alert.messageText = "Steam version is newer than the supported version!"
-            alert.informativeText = "Your Steam client is on a build of Steam that is newer "
-                + "than the build that macSteam supports! This installer can downgrade you to "
-                + "the latest supported version of Steam, or you can install anyway on your "
-                + "current build\u{2026}at your own risk."
-            alert.addButton(withTitle: "Downgrade and Install")
-        }
-        alert.addButton(withTitle: "Install Anyway")
+        alert.messageText = "Steam build differs from the bundled reference"
+        alert.informativeText = "Detected \(currentBuild); bundled reference \(MacCrab.supportedVersion). "
+            + "Current Steam builds may remain compatible. Installing without changing Steam is recommended."
+        alert.addButton(withTitle: "Install Without Changing Steam")
+        alert.addButton(withTitle: "Use Reference Build")
         alert.addButton(withTitle: "Cancel")
 
         switch alert.runModal() {
-        case .alertFirstButtonReturn:  runInstall(dylib: dylib, pinFirst: true)
-        case .alertSecondButtonReturn: runInstall(dylib: dylib, pinFirst: false)
+        case .alertFirstButtonReturn:  runInstall(dylib: dylib, pinFirst: false)
+        case .alertSecondButtonReturn: runInstall(dylib: dylib, pinFirst: true)
         default: return
         }
     }

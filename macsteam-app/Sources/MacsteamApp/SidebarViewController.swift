@@ -18,33 +18,31 @@ final class SidebarViewController: NSViewController {
         case leaf(title: String, symbol: String, item: MainViewController.Item)
     }
 
-    private let rows: [Row] = [
-        .group("Library"),
-        .leaf(title: "Installed Games", symbol: "externaldrive",
-              item: .library),
-        .leaf(title: "Save Backups", symbol: "clock.arrow.circlepath",
-              item: .saveBackups),
-        .leaf(title: "Import Apps", symbol: "square.and.arrow.down",
-              item: .importZip),
-        .leaf(title: "Apps", symbol: ConfigViewController.Section.apps.symbol,
-              item: .config(.apps)),
-        .group("macSteam"),
-        .leaf(title: "Diagnostics", symbol: "stethoscope",
-              item: .diagnostics),
-        .leaf(title: "Logs", symbol: "doc.text.magnifyingglass",
-              item: .logs),
-        .leaf(title: "Install", symbol: "shield.lefthalf.filled",
-              item: .install),
-        .leaf(title: "Repair Steam", symbol: "wrench.and.screwdriver",
-              item: .repair),
-        .leaf(title: "Settings", symbol: ConfigViewController.Section.settings.symbol,
-              item: .config(.settings)),
-        .leaf(title: "Portability", symbol: "arrow.left.arrow.right.square",
-              item: .portability),
-    ]
+    private let rows: [Row]
 
-    init(onSelect: @escaping (MainViewController.Item) -> Void) {
+    init(includePrivateFeatures: Bool = AppBuildFlavor.isPrivate,
+         onSelect: @escaping (MainViewController.Item) -> Void) {
         self.onSelect = onSelect
+        var rows: [Row] = [
+            .group("Library"),
+            .leaf(title: "Installed Games", symbol: "externaldrive", item: .library),
+            .leaf(title: "Save Backups", symbol: "clock.arrow.circlepath", item: .saveBackups),
+            .leaf(title: "Import Apps", symbol: "square.and.arrow.down", item: .importZip),
+            .leaf(title: "Apps", symbol: ConfigViewController.Section.apps.symbol, item: .config(.apps)),
+            .group("macSteam"),
+        ]
+        if includePrivateFeatures {
+            rows.append(.leaf(title: "Ready Check", symbol: "checklist", item: .readyCheck))
+        }
+        rows.append(contentsOf: [
+            .leaf(title: "Diagnostics", symbol: "stethoscope", item: .diagnostics),
+            .leaf(title: "Logs", symbol: "doc.text.magnifyingglass", item: .logs),
+            .leaf(title: "Install", symbol: "shield.lefthalf.filled", item: .install),
+            .leaf(title: "Repair Steam", symbol: "wrench.and.screwdriver", item: .repair),
+            .leaf(title: "Settings", symbol: ConfigViewController.Section.settings.symbol, item: .config(.settings)),
+            .leaf(title: "Portability", symbol: "arrow.left.arrow.right.square", item: .portability),
+        ])
+        self.rows = rows
         super.init(nibName: nil, bundle: nil)
     }
     required init?(coder: NSCoder) { fatalError() }

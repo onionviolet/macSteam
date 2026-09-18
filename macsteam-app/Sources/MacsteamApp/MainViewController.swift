@@ -11,6 +11,7 @@ final class MainViewController: NSSplitViewController {
     private var installVC: InstallViewController!
     private var repairVC: RepairViewController!
     private var diagnosticsVC: DiagnosticsViewController!
+    private var readyCheckVC: ReadyCheckViewController!
     private var libraryVC: LibraryViewController!
     private var saveBackupsVC: SaveBackupsViewController!
     private var logsVC: LogsViewController!
@@ -29,6 +30,7 @@ final class MainViewController: NSSplitViewController {
         case install
         case repair
         case diagnostics
+        case readyCheck
         case library
         case saveBackups
         case logs
@@ -53,6 +55,11 @@ final class MainViewController: NSSplitViewController {
         installVC = InstallViewController()
         repairVC = RepairViewController()
         diagnosticsVC = DiagnosticsViewController()
+        readyCheckVC = ReadyCheckViewController(onRepair: { [weak self] in
+            self?.sidebarVC.select(.repair)
+        }, onInstall: { [weak self] in
+            self?.sidebarVC.select(.install)
+        })
         libraryVC = LibraryViewController()
         saveBackupsVC = SaveBackupsViewController()
         logsVC = LogsViewController()
@@ -65,6 +72,7 @@ final class MainViewController: NSSplitViewController {
         detailContainerVC.addChild(installVC)
         detailContainerVC.addChild(repairVC)
         detailContainerVC.addChild(diagnosticsVC)
+        detailContainerVC.addChild(readyCheckVC)
         detailContainerVC.addChild(libraryVC)
         detailContainerVC.addChild(saveBackupsVC)
         detailContainerVC.addChild(logsVC)
@@ -113,6 +121,9 @@ final class MainViewController: NSSplitViewController {
         case .diagnostics:
             child = diagnosticsVC
             title = "Diagnostics"
+        case .readyCheck:
+            child = readyCheckVC
+            title = "Ready Check"
         case .library:
             child = libraryVC
             title = "Installed Games"

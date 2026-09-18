@@ -16,6 +16,15 @@ final class AccessibilitySmokeTests: XCTestCase {
         XCTAssertEqual(selected, .library)
     }
 
+    func testPrivateSidebarExposesReadyCheck() {
+        var selected: MainViewController.Item?
+        let controller = SidebarViewController(includePrivateFeatures: true) { selected = $0 }
+        _ = controller.view
+
+        controller.select(.readyCheck)
+        XCTAssertEqual(selected, .readyCheck)
+    }
+
     func testManagementPaneButtonsHaveSpokenNames() {
         let controllers: [NSViewController] = [
             DiagnosticsViewController(),
@@ -23,6 +32,7 @@ final class AccessibilitySmokeTests: XCTestCase {
             LogsViewController(),
             InstallViewController(),
             RepairViewController(),
+            ReadyCheckViewController(onRepair: {}, onInstall: {}),
         ]
 
         for controller in controllers {

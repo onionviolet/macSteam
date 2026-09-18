@@ -16,10 +16,13 @@ final class HealthDiagnosticsTests: XCTestCase {
         XCTAssertEqual(health.state, .missing)
     }
 
-    func testUnsupportedBuildWinsClassification() throws {
-        let env = environment(appExists: true, detected: "new", supported: "known")
+    func testDifferentSteamBuildIsAdvisory() throws {
+        let env = environment(appExists: true, detected: "new", supported: "known",
+                              bundled: "1", installed: "1")
         try createRequiredFiles(env)
-        XCTAssertEqual(HealthDiagnostics.inspect(env).state, .unsupported)
+        let health = HealthDiagnostics.inspect(env)
+        XCTAssertEqual(health.state, .healthy)
+        XCTAssertEqual(health.checks.first(where: { $0.name == "Steam build" })?.status, .warning)
     }
 
     func testVersionMismatchNeedsRepair() throws {
@@ -43,10 +46,10 @@ final class HealthDiagnosticsTests: XCTestCase {
         XCTAssertEqual(HealthDiagnostics.inspect(env).state, .missing)
     }
 
-    func testUnknownBuildNeedsRepair() throws {
+    func testUnknownBuildIsAdvisory() throws {
         let env = environment(appExists: true, detected: nil, supported: "known", bundled: "1", installed: "1")
         try createRequiredFiles(env)
-        XCTAssertEqual(HealthDiagnostics.inspect(env).state, .needsRepair)
+        XCTAssertEqual(HealthDiagnostics.inspect(env).state, .healthy)
     }
 
     func testIntelIsUnsupported() throws {
