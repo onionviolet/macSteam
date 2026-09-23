@@ -58,7 +58,7 @@ To build, verify, and install the private app in `/Applications`:
 ./macsteam-app/install_private.sh
 ```
 
-The installer stages and verifies the bundle before replacement, retains the previous private install as a recovery backup, and supports `--build-only` and `--restore-latest`. Use `MACSTEAM_BUILD_FLAVOR=upstream macsteam-app/make_app.sh` only when intentionally reproducing the upstream package identity.
+The installer stages and verifies the bundle before replacement, retains the three newest private installs as compressed recovery archives, and supports `--build-only` and `--restore-latest`. Archived backups do not appear as duplicate apps in macOS privacy settings. Set `MACSTEAM_PRIVATE_BACKUPS_TO_KEEP` to change the retention count. Use `MACSTEAM_BUILD_FLAVOR=upstream macsteam-app/make_app.sh` only when intentionally reproducing the upstream package identity.
 
 There is also a science experiment in the repo, a macSteam launcher that does not modify the Steam app bundle in any way. It is included for the enjoyment of others, but is not intended to be used. 
 
