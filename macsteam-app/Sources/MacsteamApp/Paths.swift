@@ -19,6 +19,10 @@ enum Paths {
         configDir.appendingPathComponent("signatures", isDirectory: true)
     }
 
+    static var saveBackupDir: URL {
+        configDir.appendingPathComponent("save-backups", isDirectory: true)
+    }
+
     static var steamRoot: URL {
         let home = FileManager.default.homeDirectoryForCurrentUser
         return home.appendingPathComponent("Library/Application Support/Steam", isDirectory: true)
@@ -29,7 +33,17 @@ enum Paths {
     }
 
     static var steamApp: URL {
-        URL(fileURLWithPath: "/Applications/Steam.app", isDirectory: true)
+        detectSteamApp()
+    }
+
+    static func detectSteamApp(fileManager: FileManager = .default,
+                               candidates: [URL]? = nil) -> URL {
+        let choices = candidates ?? [
+            URL(fileURLWithPath: "/Applications/Steam.app", isDirectory: true),
+            FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Applications/Steam.app", isDirectory: true),
+        ]
+        return choices.first(where: { fileManager.fileExists(atPath: $0.path) })
+            ?? choices[0]
     }
     static var steamAppExecutable: URL {
         steamApp.appendingPathComponent("Contents/MacOS/steam_osx")

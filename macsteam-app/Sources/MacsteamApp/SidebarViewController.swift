@@ -18,23 +18,31 @@ final class SidebarViewController: NSViewController {
         case leaf(title: String, symbol: String, item: MainViewController.Item)
     }
 
-    private let rows: [Row] = [
-        .group("Library"),
-        .leaf(title: "Import Apps", symbol: "square.and.arrow.down",
-              item: .importZip),
-        .leaf(title: "Apps", symbol: ConfigViewController.Section.apps.symbol,
-              item: .config(.apps)),
-        .group("macSteam"),
-        .leaf(title: "Install", symbol: "shield.lefthalf.filled",
-              item: .install),
-        .leaf(title: "Repair Steam", symbol: "wrench.and.screwdriver",
-              item: .repair),
-        .leaf(title: "Settings", symbol: ConfigViewController.Section.settings.symbol,
-              item: .config(.settings)),
-    ]
+    private let rows: [Row]
 
-    init(onSelect: @escaping (MainViewController.Item) -> Void) {
+    init(includePrivateFeatures: Bool = AppBuildFlavor.isPrivate,
+         onSelect: @escaping (MainViewController.Item) -> Void) {
         self.onSelect = onSelect
+        var rows: [Row] = [
+            .group("Library"),
+            .leaf(title: "Installed Games", symbol: "externaldrive", item: .library),
+            .leaf(title: "Save Backups", symbol: "clock.arrow.circlepath", item: .saveBackups),
+            .leaf(title: "Import Apps", symbol: "square.and.arrow.down", item: .importZip),
+            .leaf(title: "Apps", symbol: ConfigViewController.Section.apps.symbol, item: .config(.apps)),
+            .group("macSteam"),
+        ]
+        if includePrivateFeatures {
+            rows.append(.leaf(title: "Ready Check", symbol: "checklist", item: .readyCheck))
+        }
+        rows.append(contentsOf: [
+            .leaf(title: "Diagnostics", symbol: "stethoscope", item: .diagnostics),
+            .leaf(title: "Logs", symbol: "doc.text.magnifyingglass", item: .logs),
+            .leaf(title: "Install", symbol: "shield.lefthalf.filled", item: .install),
+            .leaf(title: "Repair Steam", symbol: "wrench.and.screwdriver", item: .repair),
+            .leaf(title: "Settings", symbol: ConfigViewController.Section.settings.symbol, item: .config(.settings)),
+            .leaf(title: "Portability", symbol: "arrow.left.arrow.right.square", item: .portability),
+        ])
+        self.rows = rows
         super.init(nibName: nil, bundle: nil)
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -48,6 +56,8 @@ final class SidebarViewController: NSViewController {
         outline.floatsGroupRows = false
         outline.style = .sourceList
         outline.backgroundColor = .clear
+        outline.setAccessibilityLabel("Sections")
+        outline.setAccessibilityHelp("Choose a section to show in the main pane.")
 
         let col = NSTableColumn(identifier: .init("main"))
         col.resizingMask = .autoresizingMask
@@ -93,7 +103,12 @@ final class SidebarViewController: NSViewController {
     }
 
     func selectDefault() {
-        select(.importZip)
+        select(.library)
+    }
+
+    func focusSelection() {
+        guard let window = view.window else { return }
+        window.makeFirstResponder(outline)
     }
 
     func select(_ item: MainViewController.Item) {
@@ -142,6 +157,7 @@ extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate 
             label.font = .preferredFont(forTextStyle: .body)
             label.textColor = .secondaryLabelColor
             label.translatesAutoresizingMaskIntoConstraints = false
+            label.setAccessibilityLabel("\(title) section")
             cell.addSubview(label)
             NSLayoutConstraint.activate([
                 label.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 6),
@@ -151,8 +167,10 @@ extension SidebarViewController: NSOutlineViewDataSource, NSOutlineViewDelegate 
 
         case .leaf(let title, let symbol, _):
             let cell = NSTableCellView()
+            cell.setAccessibilityLabel(title)
             let img = NSImageView()
             img.image = NSImage(systemSymbolName: symbol, accessibilityDescription: title)
+            img.setAccessibilityElement(false)
             img.contentTintColor = (view.window?.isKeyWindow ?? true)
                 ? .controlAccentColor : .secondaryLabelColor
             img.symbolConfiguration = .init(textStyle: .body)

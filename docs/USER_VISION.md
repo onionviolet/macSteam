@@ -1,0 +1,44 @@
+# macSteam Management Suite
+
+## Product contract
+
+macSteam serves a macOS Steam user who wants one native place to understand library state, protect local saves, diagnose installation problems, and move configuration safely.
+
+The product should let that user see what is installed, understand installation health and compatibility, create and restore local save backups safely, inspect privacy-safe logs, and export or import validated settings.
+
+## Principles
+
+- Discover first and keep discovery read-only.
+- Make writes reversible and create a safety backup before overwriting data.
+- Show explicit healthy, needs repair, unsupported, and missing states.
+- Treat an unconfirmed Steam build mismatch as advisory, not proof that the client is unsupported.
+- Keep diagnostics and logs free of account data, credentials, and personal paths.
+- Follow native macOS interaction and accessibility conventions.
+- Remain useful as a library and support utility without the restricted core.
+
+## Non-goals
+
+This management suite does not implement or improve ownership spoofing, license injection, DRM removal, DLC unlocking, access-control bypasses, depot-key acquisition, manifests for unowned software, or any related circumvention.
+
+## Success measures
+
+- A fresh clone can build the config app using the documented dependency bootstrap.
+- Health reports classify actionable states and export only redacted data.
+- Installed-library discovery is read-only and tolerates partial or malformed Steam data.
+- Every restore creates a safety backup and rejects unsafe paths and links.
+- Per-game backup profiles remember only folders the user explicitly selected, reject broad, credential, cloud, and symbolic-link paths, and support one-click versioned backups.
+- Operational logs are bounded, searchable, and redacted.
+- Configuration import validates and previews changes before atomic replacement.
+- Tests cover parsers, classification, redaction, path safety, backup recovery, retention, and configuration validation.
+
+## Delivery order and verified status
+
+1. Private Ready Check: complete in the private package. It checks architecture, Steam presence, unpacked client files, running-process state, build compatibility, installation state, and update protection; it routes the user to Repair or Install without requiring a downgrade for an unconfirmed build mismatch.
+2. Installation health and diagnostics: complete. Build mismatches and unreadable build metadata are advisory; confirmed unsupported architecture remains blocking. Verified by unit tests, a clean release app build, and native accessibility smoke inspection on 2026-09-07.
+3. Installed-game library: complete. Verified with parser and partial-scan tests, a clean release app build, and a live read-only library smoke check on 2026-09-07.
+4. Local save backup and restore: complete for user-selected local folders. Per-game profiles are stored atomically with owner-only permissions and are revalidated before every backup. Verified with traversal, symlink, stale/tampered profile, broad-path, cancellation cleanup, versioning, and pre-restore safety-backup tests. Automatic save-location discovery and cloud providers remain out of scope.
+5. Operational logging: complete. Install, uninstall, repair, import, update, scan, backup, restore, and settings operations emit redacted structured entries with bounded retention and a searchable clear/copy/export viewer.
+6. Configuration portability: complete for safe app preferences. Schema version 1 excludes game access data, rejects unknown fields and versions, previews changes, backs up the previous config, writes atomically, and exposes recovery backups.
+7. Private release isolation: complete in packaging. Private builds use a distinct bundle identifier and visible name, embed source/build metadata, fail closed on update checks, omit the upstream Sparkle feed, and install through a staged, verified, recoverable script.
+
+Only items explicitly marked complete after tests and a clean config-app build are implemented product behavior.

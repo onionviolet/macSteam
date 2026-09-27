@@ -29,6 +29,7 @@ enum Colors {
 
 enum Metrics {
     static let paneMargin: CGFloat = 24
+    static let unifiedToolbarClearance: CGFloat = 34
     static let headerGap: CGFloat = 18
     static let cornerRadius: CGFloat = 10
     static let hairlineAlpha: CGFloat = 0.6
@@ -203,7 +204,29 @@ func makeButton(title: String, target: Any?, action: Selector) -> NSButton {
     b.translatesAutoresizingMaskIntoConstraints = false
     b.bezelStyle = .rounded
     b.controlSize = .regular
+    b.setAccessibilityLabel(title.replacingOccurrences(of: "…", with: ""))
     return b
+}
+
+@MainActor
+func updateAccessibleStatus(_ label: NSTextField, text: String, announce: Bool = true) {
+    let changed = label.stringValue != text
+    label.stringValue = text
+    guard changed, announce, label.window != nil else { return }
+    NSAccessibility.post(element: label, notification: .valueChanged)
+}
+
+@MainActor
+func makeAdaptiveButtonStack(_ buttons: [NSView]) -> NSStackView {
+    let stack = NSStackView(views: buttons)
+    stack.orientation = .horizontal
+    stack.alignment = .centerY
+    stack.spacing = 8
+    stack.distribution = .fillProportionally
+    for button in buttons {
+        button.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
+    }
+    return stack
 }
 
 enum StatusTone {
@@ -231,10 +254,12 @@ enum StatusTone {
 
 @MainActor
 func runBusy(spinner: NSProgressIndicator,
+             operation: String = "operation",
              setBusy: @escaping @MainActor (Bool) -> Void,
              refresh: @escaping @MainActor () -> Void,
              work: @escaping @Sendable () throws -> Void) {
     setBusy(true)
+    OperationalLog.shared.record(.info, operation: operation, message: "Started")
     spinner.startAnimation(nil)
     DispatchQueue.global(qos: .userInitiated).async {
         let result: Result<Void, Error> = Result { try work() }
@@ -242,11 +267,15 @@ func runBusy(spinner: NSProgressIndicator,
             spinner.stopAnimation(nil)
             setBusy(false)
             if case .failure(let error) = result {
+                OperationalLog.shared.record(.error, operation: operation, message: error.localizedDescription)
                 if error is SteamInstaller.PermissionDenied {
                     presentAppManagementAlert()
                 } else {
                     presentAlert("Couldn't complete", error.localizedDescription, style: .warning)
                 }
+            }
+            if case .success = result {
+                OperationalLog.shared.record(.info, operation: operation, message: "Completed")
             }
             refresh()
         }
@@ -271,11 +300,15 @@ final class EmptyStateView: NSStackView {
         promptLabel.font = Typography.body
         promptLabel.textColor = Colors.secondaryText
         promptLabel.alignment = .center
+        promptLabel.lineBreakMode = .byWordWrapping
+        promptLabel.maximumNumberOfLines = 0
 
         let hintLabel = NSTextField(labelWithString: hint)
         hintLabel.font = Typography.caption
         hintLabel.textColor = Colors.quiet
         hintLabel.alignment = .center
+        hintLabel.lineBreakMode = .byWordWrapping
+        hintLabel.maximumNumberOfLines = 0
 
         orientation = .vertical
         alignment = .centerX
@@ -283,6 +316,9 @@ final class EmptyStateView: NSStackView {
         setViews([glyph, promptLabel, hintLabel], in: .center)
         setCustomSpacing(8, after: glyph)
         translatesAutoresizingMaskIntoConstraints = false
+        setAccessibilityElement(true)
+        setAccessibilityLabel(prompt)
+        setAccessibilityHelp(hint)
     }
     required init?(coder: NSCoder) { fatalError() }
 }

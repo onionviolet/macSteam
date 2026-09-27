@@ -10,18 +10,31 @@ final class MainViewController: NSSplitViewController {
     private var configVC: ConfigViewController!
     private var installVC: InstallViewController!
     private var repairVC: RepairViewController!
+    private var diagnosticsVC: DiagnosticsViewController!
+    private var readyCheckVC: ReadyCheckViewController!
+    private var libraryVC: LibraryViewController!
+    private var saveBackupsVC: SaveBackupsViewController!
+    private var logsVC: LogsViewController!
+    private var portabilityVC: PortabilityViewController!
 
     private let titleLabel: NSTextField = {
         let field = NSTextField(labelWithString: "")
         field.font = .systemFont(ofSize: NSFont.systemFontSize(for: .regular), weight: .semibold)
         field.textColor = .labelColor
         field.alignment = .natural
+        field.setAccessibilityLabel("Current section")
         return field
     }()
 
     enum Item: Equatable {
         case install
         case repair
+        case diagnostics
+        case readyCheck
+        case library
+        case saveBackups
+        case logs
+        case portability
         case importZip
         case config(ConfigViewController.Section)
     }
@@ -41,11 +54,29 @@ final class MainViewController: NSSplitViewController {
         configVC = ConfigViewController(store: store)
         installVC = InstallViewController()
         repairVC = RepairViewController()
+        diagnosticsVC = DiagnosticsViewController()
+        readyCheckVC = ReadyCheckViewController(onRepair: { [weak self] in
+            self?.sidebarVC.select(.repair)
+        }, onInstall: { [weak self] in
+            self?.sidebarVC.select(.install)
+        })
+        libraryVC = LibraryViewController()
+        saveBackupsVC = SaveBackupsViewController()
+        logsVC = LogsViewController()
+        portabilityVC = PortabilityViewController(store: store, onApplied: { [weak self] in
+            self?.configVC.reloadFromStore()
+        })
 
         detailContainerVC = NSViewController()
         detailContainerVC.view = NSView()
         detailContainerVC.addChild(installVC)
         detailContainerVC.addChild(repairVC)
+        detailContainerVC.addChild(diagnosticsVC)
+        detailContainerVC.addChild(readyCheckVC)
+        detailContainerVC.addChild(libraryVC)
+        detailContainerVC.addChild(saveBackupsVC)
+        detailContainerVC.addChild(logsVC)
+        detailContainerVC.addChild(portabilityVC)
         detailContainerVC.addChild(importVC)
         detailContainerVC.addChild(configVC)
 
@@ -71,6 +102,7 @@ final class MainViewController: NSSplitViewController {
         super.viewDidAppear()
         view.window?.delegate = self
         sidebarVC.selectDefault()
+        sidebarVC.focusSelection()
     }
 
     // MARK: - Detail routing
@@ -86,6 +118,24 @@ final class MainViewController: NSSplitViewController {
         case .repair:
             child = repairVC
             title = "Repair Steam"
+        case .diagnostics:
+            child = diagnosticsVC
+            title = "Diagnostics"
+        case .readyCheck:
+            child = readyCheckVC
+            title = "Ready Check"
+        case .library:
+            child = libraryVC
+            title = "Installed Games"
+        case .saveBackups:
+            child = saveBackupsVC
+            title = "Save Backups"
+        case .logs:
+            child = logsVC
+            title = "Logs"
+        case .portability:
+            child = portabilityVC
+            title = "Configuration Portability"
         case .importZip:
             child = importVC
             title = "Import Apps"
@@ -95,6 +145,10 @@ final class MainViewController: NSSplitViewController {
             title = section.title
         }
         titleLabel.stringValue = title
+        titleLabel.setAccessibilityLabel("Current section: \(title)")
+        if titleLabel.window != nil {
+            NSAccessibility.post(element: titleLabel, notification: .valueChanged)
+        }
         swapDetail(to: child.view)
     }
 
@@ -105,7 +159,10 @@ final class MainViewController: NSSplitViewController {
         newView.translatesAutoresizingMaskIntoConstraints = false
         host.addSubview(newView)
         NSLayoutConstraint.activate([
-            newView.topAnchor.constraint(equalTo: host.topAnchor),
+            // Unified toolbars extend into the detail host. Reserve the title-row
+            // height so each pane's first control remains visible and clickable.
+            newView.topAnchor.constraint(equalTo: host.topAnchor,
+                                         constant: Metrics.unifiedToolbarClearance),
             newView.leadingAnchor.constraint(equalTo: host.leadingAnchor),
             newView.trailingAnchor.constraint(equalTo: host.trailingAnchor),
             newView.bottomAnchor.constraint(equalTo: host.bottomAnchor),
